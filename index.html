@@ -86,13 +86,13 @@ const COLS={dispatch:[["dt","Date/time"],["f","Factory"],["truck","Truck"],["wb"
  shifts:[["date","Date"],["sh","Shift"],["f","Factory"],["used","Used"],["good","Good"],["bad","Bad"]],
  returns:[["dt","Dispatched"],["eta","ETA"],["f","Factory"],["truck","Truck"],["driver","Driver"],["ph","Phone"],["wb","Waybill"],["qty","Qty"],["status","Status"]],
  receipts:[["dt","Received"],["f","Factory"],["truck","Truck"],["wb","Waybill"],["qty","Sent"],["acc","Accepted"],["rej","Rejected"]]};
-function rows(kind){
+function rows(kind,readOnly=false){
  let a=D[kind].slice();
  if(kind==="returns")a=a.map(x=>({...x,status:D.receipts.some(c=>c.rid===x.id)?"Received":"In transit"}));
  if(kind==="receipts")a=a.map(x=>{const r=D.returns.find(y=>y.id===x.rid)||{};return{...x,f:r.f,truck:r.truck,wb:r.wb,qty:r.qty}});
  a.sort((x,y)=>String(y.dt||y.date||"").localeCompare(String(x.dt||x.date||"")));
  const c=COLS[kind];
- const canManage=user.role==="seasoning"||["shifts","returns"].includes(kind);
+ const canManage=!readOnly&&(user.role==="seasoning"||["shifts","returns"].includes(kind));
  const actionHeader=canManage?"<th>Actions</th>":"";
  const rowHTML=a.map(r=>{
   const canManageRecord=canManage&&(user.role==="seasoning"||r.f===user.factory);
@@ -104,11 +104,11 @@ function rows(kind){
 function render(){
  if(!user)return;
  const tabs=user.role==="seasoning"
-  ?["Dashboard","Seasoning dispatch","Sorting at seasoning"]
+  ?["Dashboard","Seasoning dispatch","Return trucks tracking","Sorting at seasoning"]
   :["Dashboard","Seasoning dispatch","Noodle shift log","Return truck","Sorting at seasoning"];
  if(!tabs.includes(tab))tab="Dashboard";
  $("#nav").innerHTML=tabs.map(t=>`<button class="${t===tab?"on":""}" data-t="${t}">${t}</button>`).join("")+`<button id="logout">Log out</button>`;
- const kind={"Seasoning dispatch":"dispatch","Noodle shift log":"shifts","Return truck":"returns","Sorting at seasoning":"receipts"}[tab];
+ const kind={"Seasoning dispatch":"dispatch","Noodle shift log":"shifts","Return truck":"returns","Return trucks tracking":"returns","Sorting at seasoning":"receipts"}[tab];
  let h="";
  if(!kind){
   const factories=user.role==="seasoning"?F:[user.factory];
@@ -116,8 +116,9 @@ function render(){
    const transit=user.role==="seasoning"?"":` | In transit ${s.transit}`;
    return `<div class="card ${al?"alert":""}"><b>${f}</b> ${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}<div class="big">${s.pile}</div><div class="mu">good cartons waiting to return</div><div class="mu">Sent ${s.sent} | Used ${s.used} | Bad ${s.bad}<br>Returned ${s.returned}${transit}</div></div>`}).join("")+`</div>`+(user.role==="seasoning"?"":`<h2>Trucks on the way back</h2>${rows("returns")}`);
  }else{
-  const canUpdate=user.role==="seasoning"||["shifts","returns"].includes(kind);
-  h=(canUpdate?`<form id="frm">${editing?.kind===kind?`<div style="grid-column:1/-1">Editing log <button type="button" class="edit" id="cancelEdit">Cancel</button></div>`:""}${formHTML(kind)}</form>`:"")+rows(kind);
+  const isSeasoningReturnTracking=user.role==="seasoning"&&tab==="Return trucks tracking";
+  const canUpdate=!isSeasoningReturnTracking&&(user.role==="seasoning"||["shifts","returns"].includes(kind));
+  h=(canUpdate?`<form id="frm">${editing?.kind===kind?`<div style="grid-column:1/-1">Editing log <button type="button" class="edit" id="cancelEdit">Cancel</button></div>`:""}${formHTML(kind)}</form>`:"")+rows(kind,isSeasoningReturnTracking);
  }
  $("#view").innerHTML=h;
  if(editing&&editing.kind===kind){
