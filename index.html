@@ -58,26 +58,26 @@ function setAuthenticated(ready){
 }
 function stats(f){
  const s=D.shifts.filter(x=>x.f===f),r=D.returns.filter(x=>x.f===f),d=D.dispatch.filter(x=>x.f===f);
- const good=sum(s,"good")+sum(s,"reuse");
+ const good=sum(s,"good");
  return{sent:sum(d,"qty"),used:sum(s,"used"),bad:sum(s,"bad"),good,returned:sum(r,"qty"),pile:good-sum(r,"qty"),
   transit:r.filter(x=>!D.receipts.some(c=>c.rid===x.id)).reduce((a,x)=>a+(+x.qty||0),0)}}
 const field=(id,l,t="text",ex="")=>`<label>${l}<input id="${id}" type="${t}" ${ex}></label>`;
 const val=id=>$("#"+id).value;
 function formHTML(kind){
  if(kind==="dispatch")return field("f_dt","Date & time","datetime-local",`value="${now()}"`)+factoryField()+field("f_truck","Truck no")+field("f_wb","Waybill no")+field("f_qty","Cartons sent","number")+`<button class="go">Log dispatch</button>`;
- if(kind==="shifts")return field("f_date","Date","date",`value="${now().slice(0,10)}"`)+factoryField()+`<label>Shift<select id="f_sh"><option>A</option><option>B</option><option>C</option></select></label>`+field("f_used","Consumed","number")+field("f_good","Good","number")+field("f_reuse","Reusable","number")+field("f_bad","Bad","number")+`<button class="go">Save shift</button>`;
+ if(kind==="shifts")return field("f_date","Date","date",`value="${now().slice(0,10)}"`)+factoryField()+`<label>Shift<select id="f_sh"><option>A</option><option>B</option><option>C</option></select></label>`+field("f_used","Consumed","number")+field("f_good","Good","number")+field("f_bad","Bad","number")+`<button class="go">Save shift</button>`;
  if(kind==="returns")return factoryField()+field("f_truck","Truck no")+field("f_driver","Driver name")+field("f_ph","Driver phone")+field("f_wb","Waybill no")+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
  if(kind==="receipts"){const current=editing?.kind==="receipts"?D.receipts.find(x=>x.id===editing.id):null;const o=D.returns.filter(x=>!D.receipts.some(c=>c.rid===x.id)||x.id===current?.rid).map(x=>`<option value="${escapeHTML(x.id)}">${escapeHTML(x.f)} | ${escapeHTML(x.truck)} | ${escapeHTML(x.wb)} | ${escapeHTML(x.qty)}</option>`).join("");
   return `<label>Truck arrived<select id="f_rid">${o}</select></label>`+field("f_acc","Accepted","number")+field("f_rej","Rejected","number")+field("f_dt","Received","datetime-local",`value="${now()}"`)+`<button class="go">Save sorting</button>`}
 }
 function rec(kind){
  if(kind==="dispatch")return{f:val("f_f"),truck:val("f_truck"),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt")};
- if(kind==="shifts")return{f:val("f_f"),date:val("f_date"),sh:val("f_sh"),used:+val("f_used"),good:+val("f_good"),reuse:+val("f_reuse"),bad:+val("f_bad")};
+ if(kind==="shifts")return{f:val("f_f"),date:val("f_date"),sh:val("f_sh"),used:+val("f_used"),good:+val("f_good"),bad:+val("f_bad")};
  if(kind==="returns")return{f:val("f_f"),truck:val("f_truck"),driver:val("f_driver"),ph:val("f_ph"),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt"),eta:val("f_eta")};
  return{rid:val("f_rid"),acc:+val("f_acc"),rej:+val("f_rej"),dt:val("f_dt")};
 }
 const COLS={dispatch:[["dt","Date/time"],["f","Factory"],["truck","Truck"],["wb","Waybill"],["qty","Qty"]],
- shifts:[["date","Date"],["sh","Shift"],["f","Factory"],["used","Used"],["good","Good"],["reuse","Reusable"],["bad","Bad"]],
+ shifts:[["date","Date"],["sh","Shift"],["f","Factory"],["used","Used"],["good","Good"],["bad","Bad"]],
  returns:[["dt","Dispatched"],["eta","ETA"],["f","Factory"],["truck","Truck"],["driver","Driver"],["ph","Phone"],["wb","Waybill"],["qty","Qty"],["status","Status"]],
  receipts:[["dt","Received"],["f","Factory"],["truck","Truck"],["wb","Waybill"],["qty","Sent"],["acc","Accepted"],["rej","Rejected"]]};
 function rows(kind){
@@ -105,7 +105,7 @@ function render(){
  if(!kind){
   const factories=user.role==="seasoning"?F:[user.factory];
   h=(user.role==="seasoning"?`<label style="max-width:240px">Alert when good cartons pile up to (qty)<input id="thr" type="number" value="${thr}"></label>`:"")+`<h2>${user.role==="seasoning"?"Per noodle factory":user.factory+" factory"}</h2><div class="grid">`+factories.map(f=>{const s=stats(f),al=s.pile>=thr;
-   return `<div class="card ${al?"alert":""}"><b>${f}</b> ${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}<div class="big">${s.pile}</div><div class="mu">good + reusable waiting to return</div><div class="mu">Sent ${s.sent} | Used ${s.used} | Bad ${s.bad}<br>Returned ${s.returned} | In transit ${s.transit}</div></div>`}).join("")+`</div><h2>Trucks on the way back</h2>`+rows("returns");
+   return `<div class="card ${al?"alert":""}"><b>${f}</b> ${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}<div class="big">${s.pile}</div><div class="mu">good cartons waiting to return</div><div class="mu">Sent ${s.sent} | Used ${s.used} | Bad ${s.bad}<br>Returned ${s.returned} | In transit ${s.transit}</div></div>`}).join("")+`</div><h2>Trucks on the way back</h2>`+rows("returns");
  }else{
   const canUpdate=user.role==="seasoning"||["shifts","returns"].includes(kind);
   h=(canUpdate?`<form id="frm">${editing?.kind===kind?`<div style="grid-column:1/-1">Editing log <button type="button" class="edit" id="cancelEdit">Cancel</button></div>`:""}${formHTML(kind)}</form>`:"")+rows(kind);
@@ -113,7 +113,7 @@ function render(){
  $("#view").innerHTML=h;
  if(editing&&editing.kind===kind){
   const record=D[kind].find(item=>item.id===editing.id);
-  const fields={dispatch:{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt"},shifts:{f:"f_f",date:"f_date",sh:"f_sh",used:"f_used",good:"f_good",reuse:"f_reuse",bad:"f_bad"},returns:{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
+  const fields={dispatch:{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt"},shifts:{f:"f_f",date:"f_date",sh:"f_sh",used:"f_used",good:"f_good",bad:"f_bad"},returns:{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
   if(record)for(const [key,id] of Object.entries(fields)){const input=$("#"+id);if(input)input.value=record[key]??""}
   const submit=$("#frm .go");if(submit)submit.textContent="Save changes";
  }
