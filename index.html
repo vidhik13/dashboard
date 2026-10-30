@@ -22,8 +22,9 @@ form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8
 label{font-size:12px;color:var(--mu);display:flex;flex-direction:column;gap:3px}
 input,select{padding:8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit}
 .go{background:var(--ac);color:#fff;border:0;border-radius:6px;padding:10px;cursor:pointer;align-self:end}
+.edit{background:transparent;color:var(--ac);border:1px solid var(--ac);border-radius:6px;padding:5px 8px;cursor:pointer;margin-right:4px}
 .delete{background:transparent;color:var(--bad);border:1px solid var(--bad);border-radius:6px;padding:5px 8px;cursor:pointer}
-.delete:disabled{opacity:.5;cursor:wait}
+.edit:disabled,.delete:disabled{opacity:.5;cursor:wait}
 .tw{overflow-x:auto;margin-top:10px}table{border-collapse:collapse;width:100%;font-size:13px}
 th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}th{color:var(--mu);font-weight:500}
 #login{max-width:380px}
@@ -47,6 +48,7 @@ const sum=(a,k)=>a.reduce((s,x)=>s+(+x[k]||0),0);
 const now=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);
 const escapeHTML=t=>String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=t=>t?escapeHTML(String(t).replace("T"," ")):"";
+let editing=null;
 const fopts=F.map(f=>`<option>${f}</option>`).join("");
 const factoryField=()=>user.role==="seasoning"?`<label>Factory<select id="f_f">${fopts}</select></label>`:`<input id="f_f" type="hidden" value="${user.factory}">`;
 function setAuthenticated(ready){
@@ -65,7 +67,7 @@ function formHTML(kind){
  if(kind==="dispatch")return field("f_dt","Date & time","datetime-local",`value="${now()}"`)+factoryField()+field("f_truck","Truck no")+field("f_wb","Waybill no")+field("f_qty","Cartons sent","number")+`<button class="go">Log dispatch</button>`;
  if(kind==="shifts")return field("f_date","Date","date",`value="${now().slice(0,10)}"`)+factoryField()+`<label>Shift<select id="f_sh"><option>A</option><option>B</option><option>C</option></select></label>`+field("f_used","Consumed","number")+field("f_good","Good","number")+field("f_reuse","Reusable","number")+field("f_bad","Bad","number")+`<button class="go">Save shift</button>`;
  if(kind==="returns")return factoryField()+field("f_truck","Truck no")+field("f_driver","Driver name")+field("f_ph","Driver phone")+field("f_wb","Waybill no")+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
- if(kind==="receipts"){const o=D.returns.filter(x=>!D.receipts.some(c=>c.rid===x.id)).map(x=>`<option value="${escapeHTML(x.id)}">${escapeHTML(x.f)} | ${escapeHTML(x.truck)} | ${escapeHTML(x.wb)} | ${escapeHTML(x.qty)}</option>`).join("");
+ if(kind==="receipts"){const current=editing?.kind==="receipts"?D.receipts.find(x=>x.id===editing.id):null;const o=D.returns.filter(x=>!D.receipts.some(c=>c.rid===x.id)||x.id===current?.rid).map(x=>`<option value="${escapeHTML(x.id)}">${escapeHTML(x.f)} | ${escapeHTML(x.truck)} | ${escapeHTML(x.wb)} | ${escapeHTML(x.qty)}</option>`).join("");
   return `<label>Truck arrived<select id="f_rid">${o}</select></label>`+field("f_acc","Accepted","number")+field("f_rej","Rejected","number")+field("f_dt","Received","datetime-local",`value="${now()}"`)+`<button class="go">Save sorting</button>`}
 }
 function rec(kind){
@@ -84,14 +86,15 @@ function rows(kind){
  if(kind==="receipts")a=a.map(x=>{const r=D.returns.find(y=>y.id===x.rid)||{};return{...x,f:r.f,truck:r.truck,wb:r.wb,qty:r.qty}});
  a.sort((x,y)=>String(y.dt||y.date||"").localeCompare(String(x.dt||x.date||"")));
  const c=COLS[kind];
- const canDelete=user.role==="seasoning"||["shifts","returns"].includes(kind);
- const actionHeader=canDelete?"<th>Action</th>":"";
+ const canManage=user.role==="seasoning"||["shifts","returns"].includes(kind);
+ const actionHeader=canManage?"<th>Actions</th>":"";
  const rowHTML=a.map(r=>{
-  const canDeleteRecord=canDelete&&(user.role==="seasoning"||r.f===user.factory);
-  const action=canDelete?`<td>${canDeleteRecord?`<button class="delete" data-delete-kind="${kind}" data-delete-id="${escapeHTML(r.id)}">Delete</button>`:""}</td>`:"";
+  const canManageRecord=canManage&&(user.role==="seasoning"||r.f===user.factory);
+  const actions=canManageRecord?`<button class="edit" data-log-action="edit" data-log-kind="${kind}" data-log-id="${escapeHTML(r.id)}">Edit</button><button class="delete" data-log-action="delete" data-log-kind="${kind}" data-log-id="${escapeHTML(r.id)}">Delete</button>`:"";
+  const action=canManage?`<td>${actions}</td>`:"";
   return `<tr>${c.map(x=>`<td>${fmt(r[x[0]]??"")}</td>`).join("")}${action}</tr>`;
  }).join("");
- return `<div class="tw"><table><tr>${c.map(x=>`<th>${x[1]}</th>`).join("")}${actionHeader}</tr>${rowHTML||`<tr><td class="mu" colspan="${c.length+(canDelete?1:0)}">No entries yet</td></tr>`}</table></div>`}
+ return `<div class="tw"><table><tr>${c.map(x=>`<th>${x[1]}</th>`).join("")}${actionHeader}</tr>${rowHTML||`<tr><td class="mu" colspan="${c.length+(canManage?1:0)}">No entries yet</td></tr>`}</table></div>`}
 function render(){
  if(!user)return;
  const tabs=["Dashboard","Seasoning dispatch","Noodle shift log","Return truck","Sorting at seasoning"];
@@ -105,22 +108,45 @@ function render(){
    return `<div class="card ${al?"alert":""}"><b>${f}</b> ${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}<div class="big">${s.pile}</div><div class="mu">good + reusable waiting to return</div><div class="mu">Sent ${s.sent} | Used ${s.used} | Bad ${s.bad}<br>Returned ${s.returned} | In transit ${s.transit}</div></div>`}).join("")+`</div><h2>Trucks on the way back</h2>`+rows("returns");
  }else{
   const canUpdate=user.role==="seasoning"||["shifts","returns"].includes(kind);
-  h=(canUpdate?`<form id="frm">${formHTML(kind)}</form>`:"")+rows(kind);
+  h=(canUpdate?`<form id="frm">${editing?.kind===kind?`<div style="grid-column:1/-1">Editing log <button type="button" class="edit" id="cancelEdit">Cancel</button></div>`:""}${formHTML(kind)}</form>`:"")+rows(kind);
  }
  $("#view").innerHTML=h;
- document.querySelectorAll("nav button[data-t]").forEach(b=>b.onclick=()=>{tab=b.dataset.t;render()});
- const logout=$("#logout");logout.onclick=()=>{token="";user=null;sessionStorage.removeItem("carton_token");setAuthenticated(false);$("#msg").textContent="You have been logged out."};
+ if(editing&&editing.kind===kind){
+  const record=D[kind].find(item=>item.id===editing.id);
+  const fields={dispatch:{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt"},shifts:{f:"f_f",date:"f_date",sh:"f_sh",used:"f_used",good:"f_good",reuse:"f_reuse",bad:"f_bad"},returns:{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
+  if(record)for(const [key,id] of Object.entries(fields)){const input=$("#"+id);if(input)input.value=record[key]??""}
+  const submit=$("#frm .go");if(submit)submit.textContent="Save changes";
+ }
+ document.querySelectorAll("nav button[data-t]").forEach(b=>b.onclick=()=>{editing=null;tab=b.dataset.t;render()});
+ const logout=$("#logout");logout.onclick=()=>{token="";user=null;editing=null;sessionStorage.removeItem("carton_token");setAuthenticated(false);$("#msg").textContent="You have been logged out."};
  const t=$("#thr");if(t)t.onchange=()=>{thr=+t.value||0;api("POST",{kind:"settings",rec:{thr}}).catch(()=>{});render()};
- const fm=$("#frm");if(fm)fm.onsubmit=async e=>{e.preventDefault();try{await api("POST",{kind,rec:rec(kind)});await load()}catch(x){$("#msg").textContent="Save failed: "+x.message}};
- $("#view").querySelectorAll("button[data-delete-kind]").forEach(button=>button.onclick=async()=>{
-  const kind=button.dataset.deleteKind,id=button.dataset.deleteId;
+ const fm=$("#frm");if(fm)fm.onsubmit=async e=>{
+  e.preventDefault();
+  const currentEdit=editing?.kind===kind?editing:null;
+  try{
+   await api("POST",currentEdit?{action:"edit",kind,id:currentEdit.id,rec:rec(kind)}:{kind,rec:rec(kind)});
+   editing=null;
+   await load();
+   $("#msg").textContent=currentEdit?"Log updated.":"Log saved.";
+  }catch(x){$("#msg").textContent=(currentEdit?"Edit":"Save")+" failed: "+x.message}
+ };
+ const cancelEdit=$("#cancelEdit");if(cancelEdit)cancelEdit.onclick=()=>{editing=null;render()};
+ $("#view").querySelectorAll("button[data-log-action]").forEach(button=>button.onclick=async()=>{
+  const action=button.dataset.logAction,kind=button.dataset.logKind,id=button.dataset.logId;
   const record=D[kind].find(item=>item.id===id);
-  if(!record){$("#msg").textContent="Delete failed: record not found. Refresh and try again.";return}
+  if(!record){$("#msg").textContent="Action failed: record not found. Refresh and try again.";return}
+  if(action==="edit"){
+   editing={kind,id};
+   tab=({dispatch:"Seasoning dispatch",shifts:"Noodle shift log",returns:"Return truck",receipts:"Sorting at seasoning"})[kind];
+   render();
+   return;
+  }
   const detail=kind==="returns"?" Any sorting receipt for this return will also be deleted.":"";
   if(!window.confirm(`Delete this ${kind==="shifts"?"shift":kind==="returns"?"return truck":kind==="receipts"?"sorting":"dispatch"} log? This cannot be undone.${detail}`))return;
   button.disabled=true;
   try{
    await api("POST",{action:"delete",kind,id});
+   editing=null;
    await load();
    $("#msg").textContent="Log deleted.";
   }catch(error){
@@ -152,7 +178,7 @@ async function load(){
   setAuthenticated(true);$("#msg").textContent="";
   const el=document.activeElement;if(!el||!/INPUT|SELECT/.test(el.tagName))render();
  }catch(error){
-  if(error.status===401){token="";user=null;sessionStorage.removeItem("carton_token");setAuthenticated(false)}
+  if(error.status===401){token="";user=null;editing=null;sessionStorage.removeItem("carton_token");setAuthenticated(false)}
   $("#msg").textContent=error.message;
  }
 }

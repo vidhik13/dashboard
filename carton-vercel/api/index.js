@@ -75,6 +75,40 @@ export default async function handler(req, res) {
   const user = readToken(req);
   if (!user) return res.status(401).send("Unauthorized");
 
+  if (req.method === "POST" && req.body?.action === "edit") {
+    const { kind, id, rec } = req.body;
+    if (!KINDS.includes(kind)) return res.status(400).send("Bad kind");
+    if (typeof id !== "string" || !id) return res.status(400).send("Invalid record id");
+    if (!rec || typeof rec !== "object" || Array.isArray(rec))
+      return res.status(400).send("Invalid record");
+    if (!isSeasoning(user) && !["shifts", "returns"].includes(kind))
+      return res.status(403).send("This account cannot edit that data");
+
+    const records = await redis.lrange(kind, 0, -1);
+    const index = (records || []).findIndex(item => item.id === id);
+    if (index < 0) return res.status(404).send("Record not found");
+    const existing = records[index];
+    if (!isSeasoning(user) && existing.f !== user.factory)
+      return res.status(403).send("This account cannot edit that record");
+
+    const record = { ...rec, id };
+    if (["dispatch", "shifts", "returns"].includes(kind)) {
+      if (isSeasoning(user) && !FACTORIES.includes(record.f))
+        return res.status(400).send("Invalid factory");
+      if (!isSeasoning(user)) record.f = user.factory;
+    }
+    if (kind === "receipts") {
+      if (typeof record.rid !== "string" || !record.rid)
+        return res.status(400).send("Invalid return truck");
+      const returnRecords = await redis.lrange("returns", 0, -1);
+      if (!(returnRecords || []).some(item => item.id === record.rid))
+        return res.status(400).send("Return truck not found");
+    }
+
+    await redis.lset(kind, index, record);
+    return res.status(200).json({ ok: true, id });
+  }
+
   if (req.method === "POST" && req.body?.action === "delete") {
     const { kind, id } = req.body;
     if (!KINDS.includes(kind)) return res.status(400).send("Bad kind");
