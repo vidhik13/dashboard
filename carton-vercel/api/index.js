@@ -57,6 +57,14 @@ function isSeasoning(user) {
   return user.role === "seasoning";
 }
 
+function normalizeFactory(factory) {
+  return factory === "OA" ? "OTA" : factory;
+}
+
+function normalizeFactoryRecord(record) {
+  return record.f === "OA" ? { ...record, f: "OTA" } : record;
+}
+
 export default async function handler(req, res) {
   if (req.method === "POST" && req.body?.action === "login") {
     if (!process.env.AUTH_SECRET)
@@ -88,7 +96,7 @@ export default async function handler(req, res) {
     const index = (records || []).findIndex(item => item.id === id);
     if (index < 0) return res.status(404).send("Record not found");
     const existing = records[index];
-    if (!isSeasoning(user) && existing.f !== user.factory)
+    if (!isSeasoning(user) && normalizeFactory(existing.f) !== user.factory)
       return res.status(403).send("This account cannot edit that record");
 
     const record = { ...rec, id };
@@ -119,7 +127,7 @@ export default async function handler(req, res) {
     const records = await redis.lrange(kind, 0, -1);
     const record = (records || []).find(item => item.id === id);
     if (!record) return res.status(404).send("Record not found");
-    if (!isSeasoning(user) && record.f !== user.factory)
+    if (!isSeasoning(user) && normalizeFactory(record.f) !== user.factory)
       return res.status(403).send("This account cannot delete that record");
 
     const removed = await redis.lrem(kind, 1, record);
@@ -143,14 +151,17 @@ export default async function handler(req, res) {
       redis.lrange("receipts", 0, -1),
       redis.get("settings"),
     ]);
+    const normalizedDispatch = (dispatch || []).map(normalizeFactoryRecord);
+    const normalizedShifts = (shifts || []).map(normalizeFactoryRecord);
+    const normalizedReturns = (returns || []).map(normalizeFactoryRecord);
     const visibleReturns = isSeasoning(user)
-      ? returns || []
-      : (returns || []).filter(record => record.f === user.factory);
+      ? normalizedReturns
+      : normalizedReturns.filter(record => record.f === user.factory);
     const visibleReturnIds = new Set(visibleReturns.map(record => record.id));
 
     return res.status(200).json({
-      dispatch: (dispatch || []).filter(record => isSeasoning(user) || record.f === user.factory),
-      shifts: (shifts || []).filter(record => isSeasoning(user) || record.f === user.factory),
+      dispatch: normalizedDispatch.filter(record => isSeasoning(user) || record.f === user.factory),
+      shifts: normalizedShifts.filter(record => isSeasoning(user) || record.f === user.factory),
       returns: visibleReturns,
       receipts: (receipts || []).filter(record =>
         isSeasoning(user) || visibleReturnIds.has(record.rid),
