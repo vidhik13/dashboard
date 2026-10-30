@@ -1,1 +1,1 @@
-{ "name": "carton-return-tracker", "private": true, "type": "module", "dependencies": { "@upstash/redis": "^1.34.0" } }
+{ "name": "carton-return-tracker", "private": true, "type": "module", "dependencies": { "@upstash/redis": "^1.34.0", "exceljs": "^4.4.0" } }

@@ -45,6 +45,12 @@ const C=["dispatch","shifts","returns","receipts"];
 let D={dispatch:[],shifts:[],returns:[],receipts:[]},tab="Dashboard",user=null,token=sessionStorage.getItem("carton_token")||"",thr=500;
 const $=s=>document.querySelector(s);
 const sum=(a,k)=>a.reduce((s,x)=>s+(+x[k]||0),0);
+const excelSyncMessage=(result,action)=>{
+ if(result.excelSync==="synced")return `${action}. Excel workbooks updated.`;
+ if(result.excelSync==="failed"||result.excelSync==="not_configured")
+  return `${action} in dashboard, but ${result.excelMessage}`;
+ return `${action} in dashboard, but Excel sync status could not be confirmed. Ask Seasoning to sync the workbooks.`;
+};
 const now=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);
 const escapeHTML=t=>String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=t=>t?escapeHTML(String(t).replace("T"," ")):"";
@@ -106,7 +112,7 @@ function render(){
  let h="";
  if(!kind){
   const factories=user.role==="seasoning"?F:[user.factory];
-  h=(user.role==="seasoning"?`<label style="max-width:240px">Alert when good cartons pile up to (qty)<input id="thr" type="number" value="${thr}"></label>`:"")+`<h2>${user.role==="seasoning"?"Per noodle factory":user.factory+" factory"}</h2><div class="grid">`+factories.map(f=>{const s=stats(f),al=s.pile>=thr;
+  h=(user.role==="seasoning"?`<label style="max-width:240px">Alert when good cartons pile up to (qty)<input id="thr" type="number" value="${thr}"></label><button class="go" id="syncExcel" type="button">Sync Excel workbooks</button>`:"")+`<h2>${user.role==="seasoning"?"Per noodle factory":user.factory+" factory"}</h2><div class="grid">`+factories.map(f=>{const s=stats(f),al=s.pile>=thr;
    return `<div class="card ${al?"alert":""}"><b>${f}</b> ${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}<div class="big">${s.pile}</div><div class="mu">good cartons waiting to return</div><div class="mu">Sent ${s.sent} | Used ${s.used} | Bad ${s.bad}<br>Returned ${s.returned} | In transit ${s.transit}</div></div>`}).join("")+`</div><h2>Trucks on the way back</h2>`+rows("returns");
  }else{
   const canUpdate=user.role==="seasoning"||["shifts","returns"].includes(kind);
@@ -122,14 +128,23 @@ function render(){
  document.querySelectorAll("nav button[data-t]").forEach(b=>b.onclick=()=>{editing=null;tab=b.dataset.t;render()});
  const logout=$("#logout");logout.onclick=()=>{token="";user=null;editing=null;sessionStorage.removeItem("carton_token");setAuthenticated(false);$("#msg").textContent="You have been logged out."};
  const t=$("#thr");if(t)t.onchange=()=>{thr=+t.value||0;api("POST",{kind:"settings",rec:{thr}}).catch(()=>{});render()};
+ const syncButton=$("#syncExcel");if(syncButton)syncButton.onclick=async()=>{
+  syncButton.disabled=true;
+  try{
+   const result=await api("POST",{action:"syncExcel"});
+   $("#msg").textContent=result.excelMessage;
+  }catch(error){
+   $("#msg").textContent="Excel sync failed: "+error.message;
+  }finally{syncButton.disabled=false}
+ };
  const fm=$("#frm");if(fm)fm.onsubmit=async e=>{
   e.preventDefault();
   const currentEdit=editing?.kind===kind?editing:null;
   try{
-   await api("POST",currentEdit?{action:"edit",kind,id:currentEdit.id,rec:rec(kind)}:{kind,rec:rec(kind)});
+   const result=await api("POST",currentEdit?{action:"edit",kind,id:currentEdit.id,rec:rec(kind)}:{kind,rec:rec(kind)});
    editing=null;
    await load();
-   $("#msg").textContent=currentEdit?"Log updated.":"Log saved.";
+   $("#msg").textContent=excelSyncMessage(result,currentEdit?"Log updated":"Log saved");
   }catch(x){$("#msg").textContent=(currentEdit?"Edit":"Save")+" failed: "+x.message}
  };
  const cancelEdit=$("#cancelEdit");if(cancelEdit)cancelEdit.onclick=()=>{editing=null;render()};
@@ -147,10 +162,10 @@ function render(){
   if(!window.confirm(`Delete this ${kind==="shifts"?"shift":kind==="returns"?"return truck":kind==="receipts"?"sorting":"dispatch"} log? This cannot be undone.${detail}`))return;
   button.disabled=true;
   try{
-   await api("POST",{action:"delete",kind,id});
+   const result=await api("POST",{action:"delete",kind,id});
    editing=null;
    await load();
-   $("#msg").textContent="Log deleted.";
+   $("#msg").textContent=excelSyncMessage(result,"Log deleted");
   }catch(error){
    $("#msg").textContent="Delete failed: "+error.message;
    button.disabled=false;

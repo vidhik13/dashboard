@@ -1,5 +1,6 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { Redis } from "@upstash/redis";
+import { syncExcelWorkbooks } from "./excel-sync.js";
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL,
@@ -65,6 +66,38 @@ function normalizeFactoryRecord(record) {
   return record.f === "OA" ? { ...record, f: "OTA" } : record;
 }
 
+async function getRecordFactory(kind, record) {
+  if (["dispatch", "shifts", "returns"].includes(kind))
+    return normalizeFactory(record.f);
+  if (kind === "receipts") {
+    const returns = await redis.lrange("returns", 0, -1);
+    return normalizeFactory((returns || []).find(item => item.id === record.rid)?.f);
+  }
+  return null;
+}
+
+async function syncExcelForFactories(factories) {
+  try {
+    const [dispatch, shifts, returns, receipts] = await Promise.all([
+      redis.lrange("dispatch", 0, -1),
+      redis.lrange("shifts", 0, -1),
+      redis.lrange("returns", 0, -1),
+      redis.lrange("receipts", 0, -1),
+    ]);
+    return await syncExcelWorkbooks({
+      dispatch: dispatch || [],
+      shifts: shifts || [],
+      returns: returns || [],
+      receipts: receipts || [],
+    }, factories);
+  } catch (error) {
+    return {
+      status: "failed",
+      message: error instanceof Error ? error.message : "Unknown Excel sync error.",
+    };
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method === "POST" && req.body?.action === "login") {
     if (!process.env.AUTH_SECRET)
@@ -83,6 +116,12 @@ export default async function handler(req, res) {
   const user = readToken(req);
   if (!user) return res.status(401).send("Unauthorized");
 
+  if (req.method === "POST" && req.body?.action === "syncExcel") {
+    if (!isSeasoning(user)) return res.status(403).send("Only seasoning can sync all Excel workbooks");
+    const result = await syncExcelForFactories(FACTORIES);
+    return res.status(200).json({ ok: result.status === "synced", excelSync: result.status, excelMessage: result.message });
+  }
+
   if (req.method === "POST" && req.body?.action === "edit") {
     const { kind, id, rec } = req.body;
     if (!KINDS.includes(kind)) return res.status(400).send("Bad kind");
@@ -98,6 +137,7 @@ export default async function handler(req, res) {
     const existing = records[index];
     if (!isSeasoning(user) && normalizeFactory(existing.f) !== user.factory)
       return res.status(403).send("This account cannot edit that record");
+    const previousFactory = await getRecordFactory(kind, existing);
 
     const record = { ...rec, id };
     if (["dispatch", "shifts", "returns"].includes(kind)) {
@@ -113,8 +153,10 @@ export default async function handler(req, res) {
         return res.status(400).send("Return truck not found");
     }
 
+    const nextFactory = await getRecordFactory(kind, record);
     await redis.lset(kind, index, record);
-    return res.status(200).json({ ok: true, id });
+    const excel = await syncExcelForFactories([previousFactory, nextFactory]);
+    return res.status(200).json({ ok: true, id, excelSync: excel.status, excelMessage: excel.message });
   }
 
   if (req.method === "POST" && req.body?.action === "delete") {
@@ -129,6 +171,7 @@ export default async function handler(req, res) {
     if (!record) return res.status(404).send("Record not found");
     if (!isSeasoning(user) && normalizeFactory(record.f) !== user.factory)
       return res.status(403).send("This account cannot delete that record");
+    const factory = await getRecordFactory(kind, record);
 
     const removed = await redis.lrem(kind, 1, record);
     if (!removed) return res.status(409).send("Record changed; refresh and try again");
@@ -140,7 +183,8 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ ok: true });
+    const excel = await syncExcelForFactories([factory]);
+    return res.status(200).json({ ok: true, excelSync: excel.status, excelMessage: excel.message });
   }
 
   if (req.method === "GET") {
@@ -202,9 +246,11 @@ export default async function handler(req, res) {
         return res.status(400).send("Return truck not found");
     }
 
+    const factory = await getRecordFactory(kind, record);
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     await redis.rpush(kind, { ...record, id });
-    return res.status(200).json({ ok: true, id });
+    const excel = await syncExcelForFactories([factory]);
+    return res.status(200).json({ ok: true, id, excelSync: excel.status, excelMessage: excel.message });
   }
 
   return res.status(405).send("Method not allowed");
