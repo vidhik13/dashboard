@@ -26,21 +26,34 @@ Give each account a unique password. Keep the passwords, signing key, and Redis 
 
 The login names are `ota`, `phc`, `kaduna`, `aba`, and `seasoning`. Noodle accounts are restricted to their own factory and can edit or delete their own shift and return-truck logs. The seasoning account can manage, edit, and delete logs for all factories. Deleting a return-truck log also deletes its associated sorting receipt, if it has one. Login sessions expire after eight hours.
 
-## Automatic Excel workbooks
+## SharePoint live Excel workbooks
 
-The app keeps Redis as its live database and mirrors records to five `.xlsx` files in a designated OneDrive for Business account: one workbook for each factory and one all-factory workbook for Seasoning. Each workbook has `Dispatch`, `Shifts`, `Returns`, and `Receipts` tabs. Factory workbooks include only that factory's records; the Seasoning workbook includes all factories. Old `OA` records are labeled `OTA` in the exports.
+Redis remains the dashboard's live database. The app updates five Excel workbooks that you upload to the default **Documents** library of a SharePoint site: one workbook per factory plus one all-factory Seasoning workbook. Each workbook has `Dispatch`, `Shifts`, `Returns`, and `Receipts` tabs. Factory workbooks contain only that factory's records; the Seasoning workbook contains all factories. Old `OA` entries are exported as `OTA`.
 
-Before enabling automatic sync, a Microsoft 365 administrator must register an app in Microsoft Entra ID, add the Microsoft Graph **Application** permission `Files.ReadWrite.All`, and grant admin consent. This permission is broad across the tenant; configuring a dedicated OneDrive destination does not narrow the permission itself. Have your administrator review and approve this access before proceeding.
+### Prepare the workbooks
 
-1. In the [Microsoft Entra admin center](https://entra.microsoft.com/), go to **Identity → Applications → App registrations → New registration**. Name the app (for example, `Carton Return Tracker`) and choose **Accounts in this organizational directory only**.
-2. Open the registration's **Overview** and note the **Directory (tenant) ID** and **Application (client) ID**.
-3. Go to **Certificates & secrets → Client secrets → New client secret**. Create a secret and copy its **Value** immediately; it is not shown again.
-4. Go to **API permissions → Add a permission → Microsoft Graph → Application permissions**. Add `Files.ReadWrite.All`, then select **Grant admin consent**. The Microsoft 365 administrator must approve this.
-5. In Netlify, open the site's **Environment variables** and add these values for the **Production** context. If Netlify shows scopes, include **Functions**. Never put the client secret in Git or the dashboard HTML.
-   - `MICROSOFT_TENANT_ID`: the Entra Directory (tenant) ID.
-   - `MICROSOFT_CLIENT_ID`: the app's Application (client) ID.
-   - `MICROSOFT_CLIENT_SECRET`: the client-secret **Value** created for the app.
-   - `MICROSOFT_ONEDRIVE_USER`: the dedicated OneDrive account's user principal name (email address). Its OneDrive must already be provisioned.
-6. Redeploy. Log in as Seasoning and select **Sync Excel workbooks** once to create/populate the five workbooks from existing records. New entries, edits, and deletions then update the relevant factory workbook and the all-factory Seasoning workbook.
+Create and upload five `.xlsx` files into the SharePoint site's default Documents library (or one folder within it). Use these exact filenames:
 
-If a record is saved but the Excel update fails, the dashboard reports the sync error; Seasoning can retry with **Sync Excel workbooks**. The workbooks mirror the current dashboard records: edits update the matching row and deleted records are removed from the workbook. They are not an immutable audit archive. The workbooks are created in the OneDrive account's root. Share each factory workbook only with that factory's intended users, and share the Seasoning workbook only with Seasoning users. Excel file sharing controls access; the dashboard login does not automatically grant OneDrive permissions.
+- `Carton Return Tracker - OTA.xlsx`
+- `Carton Return Tracker - PHC.xlsx`
+- `Carton Return Tracker - KADUNA.xlsx`
+- `Carton Return Tracker - ABA.xlsx`
+- `Carton Return Tracker - Seasoning.xlsx`
+
+They can be blank workbooks; the app creates or replaces the four log tabs and fills them from Redis. Keep any unrelated tabs separate—the app only changes those four named tabs. Changes to dashboard records update the corresponding workbook automatically. Edits replace the matching data and deletions remove it; the workbooks are live mirrors, not immutable audit archives. Share each factory workbook only with its intended factory users and the Seasoning workbook only with Seasoning users.
+
+### Connect Netlify to the SharePoint site
+
+1. In the [Microsoft Entra admin center](https://entra.microsoft.com/), register an app for **this organizational directory only**. Save the **Directory (tenant) ID** and **Application (client) ID** from the app's Overview.
+2. Under **Certificates & secrets**, create a client secret and copy its **Value** immediately. Store it only as a Netlify environment variable.
+3. Under **API permissions**, add Microsoft Graph **Application** permission `Sites.Selected` and grant admin consent.
+4. Have a Microsoft 365 administrator explicitly grant this app the **write** role on the specific SharePoint site containing the workbooks. `Sites.Selected` does not grant access to any site until the site-level permission is assigned. This is narrower than tenant-wide `Files.ReadWrite.All`.
+5. In Netlify, add the following variables for **Production** and the **Functions** scope (if scopes are shown):
+   - `MICROSOFT_TENANT_ID`: Entra Directory (tenant) ID.
+   - `MICROSOFT_CLIENT_ID`: Application (client) ID.
+   - `MICROSOFT_CLIENT_SECRET`: client-secret **Value**.
+   - `SHAREPOINT_SITE_URL`: full site URL, e.g. `https://contoso.sharepoint.com/sites/CartonReturns`.
+   - `SHAREPOINT_FOLDER_PATH`: optional folder path inside the site's default Documents library; leave blank if the five files are in the library root.
+6. Redeploy. Sign in as Seasoning and click **Sync Excel workbooks** once to populate the uploaded files with existing records. After that, new, edited, and deleted dashboard records update the relevant SharePoint workbooks.
+
+If an Excel update fails, the dashboard reports that the record was still saved in Redis and shows a sync error. Seasoning can retry the full sync from the dashboard. The implementation uses Microsoft Graph to download each existing workbook, update the four log tabs, and upload the workbook back to SharePoint. Avoid editing these same tabs in Excel at the same time as a dashboard sync.
