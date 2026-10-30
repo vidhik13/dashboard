@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Seasoning Carton Returns Dashboard</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f6f5f0;--fg:#1d1d1b;--mut:#6b6b66;--line:#e2e1da;--card:#fff;--acc:#1d9e75;--warn:#d85a30;--amb:#d99a1e;--blu:#378add}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--fg:#ecebe4;--mut:#9a9990;--line:#33332f;--card:#1f1f1d}}
+:root[data-theme="dark"]{--bg:#161615;--fg:#ecebe4;--mut:#9a9990;--line:#33332f;--card:#1f1f1d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;padding:16px;max-width:1050px;margin:auto}
+h1{font-size:20px;margin:0}h2{font-size:15px;margin:0 0 10px}.sub{color:var(--mut);margin:2px 0 12px}
+.tabs{display:flex;gap:6px;margin-bottom:14px}.tabs button{background:var(--card);color:var(--fg);border:1px solid var(--line);padding:9px 16px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer}
+.tabs button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-bottom:14px}
+.k{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}.k small{color:var(--mut)}.k b{display:block;font-size:22px}
+.sc{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:560px}th,td{padding:7px 8px;text-align:right;border-top:1px solid var(--line);white-space:nowrap}
+th{color:var(--mut);font-size:12px;font-weight:600;border-top:0}th:first-child,td:first-child{text-align:left}tr.t td{font-weight:700}
+.tag{font-size:11px;padding:1px 6px;border-radius:9px;border:1px solid var(--line);color:var(--mut);margin-left:6px}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:end}
+label{font-size:12px;color:var(--mut);display:flex;flex-direction:column;gap:3px}
+input,select,form button{font:inherit;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+form button{background:var(--acc);color:#fff;border:0;font-weight:600;cursor:pointer}button.x{background:none;border:0;color:var(--mut);cursor:pointer;font-size:16px}
+.lr{display:grid;grid-template-columns:70px 1fr 120px 90px 24px;gap:8px;padding:7px 0;border-top:1px solid var(--line);align-items:center;font-size:13px}
+.c-dispatch{color:var(--amb);font-weight:600}.c-return{color:var(--acc);font-weight:600}.c-receive{color:var(--blu);font-weight:600}.c-accept{color:#7f5fc4;font-weight:600}
+#msg{color:var(--warn);font-size:12px;min-height:16px;margin-top:8px}#st{font-size:12px;color:var(--mut)}
+.bars{display:flex;align-items:flex-end;gap:6px;height:130px}.bars div{flex:1;text-align:center;font-size:11px;color:var(--mut);display:flex;flex-direction:column;justify-content:flex-end;height:100%}
+.bars i{display:block;background:var(--amb);border-radius:3px 3px 0 0;min-height:1px}
+@media(max-width:560px){.lr{grid-template-columns:55px 1fr 105px 24px}.lr .wb{display:none}}
+</style></head><body>
+<h1>Seasoning carton dashboard</h1>
+<div class="sub">One seasoning factory supplies 4 noodle factories. <span id="st">Connecting…</span></div>
+<div class="tabs"><button id="t1" class="on">Returns &amp; acceptance</button><button id="t2">Seasoning sent (sales)</button></div>
+<div id="p1"><div class="kpis" id="k1"></div><div class="card"><h2>By noodle factory</h2><div class="sc" id="f1"></div></div></div>
+<div id="p2" hidden><div class="kpis" id="k2"></div><div class="card"><h2 id="mh">Seasoning sent by month</h2><div class="bars" id="bars"></div></div><div class="card"><h2>By noodle factory, monthly and year to date</h2><div class="sc" id="f2"></div></div></div>
+<div class="card"><h2>Log a movement</h2>
+<form id="f"><label>Noodle factory<select id="fs"></select></label><label>Type<select id="ty"></select></label>
+<label>Cartons<input id="q" type="number" min="1" step="1" required></label><label>Waybill no.<input id="wb" placeholder="e.g. WB-0001"></label>
+<label>Date<input id="dt" type="date" required></label><button>Add entry</button></form><div id="msg"></div></div>
+<div class="card"><h2>Recent activity</h2><div id="log"></div></div>
+<script>
+// Edit factory names here. waybill:true = waybill number required for sent/returned entries.
+const FACTORIES=[{id:"f1",name:"Noodle Factory 1 (near plant)",waybill:false},{id:"f2",name:"Noodle Factory 2",waybill:true},{id:"f3",name:"Noodle Factory 3",waybill:true},{id:"f4",name:"Noodle Factory 4",waybill:true}];
+const TYPES={dispatch:"Seasoning sent (sales)",return:"Cartons returned (by noodle factory)",receive:"Cartons received (by seasoning factory)",accept:"Cartons accepted (by seasoning factory)"};
+const LAB={dispatch:"sent",return:"returned",receive:"received",accept:"accepted"};
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const TODAY=new Date().toISOString().slice(0,10),YR=+TODAY.slice(0,4);
+let entries=[],col=null,tab=1;
+const $=id=>document.getElementById(id);
+const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+const n=v=>v.toLocaleString(),pc=(a,b)=>b?Math.round(a/b*100)+"%":"0%";
+const sum=(a,t)=>a.filter(e=>e.type===t).reduce((s,e)=>s+e.qty,0);
+$("dt").value=TODAY;
+FACTORIES.forEach(f=>$("fs").add(new Option(f.name+(f.waybill?"":" (no waybill)"),f.id)));
+function kpis(box,list){box.replaceChildren();list.forEach(([a,b])=>{const d=el("div","k");d.append(el("small",0,a),el("b",0,b));box.append(d)})}
+function table(box,head,rows,totalRow){box.replaceChildren();const t=el("table"),h=el("tr");head.forEach(x=>h.append(el("th",0,x)));t.append(h);
+ rows.concat(totalRow?[totalRow]:[]).forEach((r,i)=>{const tr=el("tr",totalRow&&i===rows.length?"t":"");r.forEach(x=>{const td=el("td");if(x&&x.nodeType)td.append(x);else td.textContent=x;tr.append(td)});t.append(tr)});box.append(t)}
+const fname=f=>{const s=el("span",0,f.name);s.append(el("span","tag",f.waybill?"waybill":"local"));return s};
+function render(){
+ const D=sum(entries,"dispatch"),R=sum(entries,"return"),V=sum(entries,"receive"),A=sum(entries,"accept");
+ kpis($("k1"),[["Seasoning sent",n(D)],["Returned",n(R)],["Received",n(V)],["Accepted",n(A)],["Return rate",pc(R,D)],["Acceptance rate",pc(A,R)],["In transit / missing",n(Math.max(R-V,0))],["Rejected / pending",n(Math.max(V-A,0))]]);
+ table($("f1"),["Noodle factory","Sent","Returned","Received","Accepted","Return %","Accept %"],
+  FACTORIES.map(f=>{const e=entries.filter(x=>x.factory===f.id),d=sum(e,"dispatch"),r=sum(e,"return"),v=sum(e,"receive"),a=sum(e,"accept");return[fname(f),n(d),n(r),n(v),n(a),pc(r,d),pc(a,r)]}),
+  ["Total",n(D),n(R),n(V),n(A),pc(R,D),pc(A,R)]);
+ // sales tab
+ const sold=entries.filter(e=>e.type==="dispatch"&&e.date.slice(0,4)==YR);
+ const mt=m=>sold.filter(e=>+e.date.slice(5,7)===m+1).reduce((s,e)=>s+e.qty,0);
+ const cm=new Date().getMonth(),ytd=sold.filter(e=>e.date<=TODAY).reduce((s,e)=>s+e.qty,0);
+ kpis($("k2"),[["This month ("+MON[cm]+")",n(mt(cm))],["Year to date ("+YR+")",n(ytd)],["Average per month (YTD)",n(Math.round(ytd/(cm+1)))],["All time",n(D)]]);
+ const mx=Math.max(1,...MON.map((_,m)=>mt(m)));$("mh").textContent="Seasoning sent by month, "+YR;
+ const b=$("bars");b.replaceChildren();MON.forEach((M,m)=>{const c=el("div"),i=el("i");i.style.height=Math.round(mt(m)/mx*95)+"px";c.append(el("span",0,n(mt(m))),i,el("span",0,M));b.append(c)});
+ const mrow=f=>{const s=sold.filter(e=>e.factory===f.id);const mm=MON.map((_,m)=>s.filter(e=>+e.date.slice(5,7)===m+1).reduce((a,e)=>a+e.qty,0));return[mm,s.filter(e=>e.date<=TODAY).reduce((a,e)=>a+e.qty,0)]};
+ const rows=FACTORIES.map(f=>{const[mm,y]=mrow(f);return[fname(f),...mm.map(x=>x?n(x):"-"),n(y)]});
+ const tm=MON.map((_,m)=>n(mt(m)));
+ table($("f2"),["Noodle factory",...MON,"YTD"],rows,["Total",...MON.map((_,m)=>mt(m)?n(mt(m)):"-"),n(ytd)]);
+ // log
+ const types=tab===1?["return","receive","accept"]:["dispatch"];
+ const lg=$("log");lg.replaceChildren();const L=entries.filter(e=>types.includes(e.type));
+ if(!L.length)lg.append(el("div","sub","No entries yet."));
+ L.slice(0,25).forEach(e=>{const f=FACTORIES.find(x=>x.id===e.factory),r=el("div","lr");
+  r.append(el("span",0,e.date.slice(5)),el("span",0,f?f.name:e.factory),el("span","c-"+e.type,n(e.qty)+" "+(LAB[e.type]||e.type)),el("span","wb",e.waybill||"-"));
+  const x=el("button","x","×");x.title="Delete entry";x.onclick=()=>del(e.id);r.append(x);lg.append(r)});
+}
+function setTab(t){tab=t;$("p1").hidden=t!==1;$("p2").hidden=t!==2;$("t1").className=t===1?"on":"";$("t2").className=t===2?"on":"";
+ const ty=$("ty");ty.replaceChildren();(t===1?["return","receive","accept"]:["dispatch"]).forEach(k=>ty.add(new Option(TYPES[k],k)));render()}
+$("t1").onclick=()=>setTab(1);$("t2").onclick=()=>setTab(2);
+async function del(id){if(!confirm("Delete this entry?"))return;if(col)try{await col.doc(id).delete()}catch(_){$("msg").textContent="Could not delete."}else{entries=entries.filter(e=>e.id!==id);render()}}
+$("f").onsubmit=async ev=>{ev.preventDefault();const m=$("msg");m.textContent="";
+ const f=FACTORIES.find(x=>x.id===$("fs").value),q=parseInt($("q").value,10),wb=$("wb").value.trim(),ty=$("ty").value;
+ if(!(q>0)){m.textContent="Enter a quantity above zero.";return}
+ if(f.waybill&&!wb&&(ty==="dispatch"||ty==="return")){m.textContent="A waybill number is required for "+f.name+".";return}
+ const rec={factory:f.id,type:ty,qty:q,waybill:wb,date:$("dt").value,ts:Date.now()};
+ try{if(col)await col.add(rec);else{entries.unshift({id:"l"+rec.ts,...rec});render()}$("q").value="";$("wb").value=""}catch(_){m.textContent="Could not save. Check your permissions."}};
+setTab(1);
+(async()=>{let db=null;try{db=await claude.use("db")}catch(_){}
+ if(!db){$("st").textContent="Offline mode: entries are not shared or saved.";return}
+ col=db.collection("entries");$("st").textContent="Live";
+ col.orderBy("ts","desc").onSnapshot(s=>{entries=s.docs.map(d=>({id:d.id,...d.data()}));render()},()=>{$("st").textContent="Connection problem."})})();
+</script></body></html>

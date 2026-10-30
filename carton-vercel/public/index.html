@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Carton Return Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--tx:#1d1d1b;--mu:#6b6a65;--bd:#e0ded6;--ac:#c2410c;--ok:#15803d;--bad:#b91c1c;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171716;--card:#222220;--tx:#efeee9;--mu:#9a988f;--bd:#383835;--ac:#fb923c;--ok:#4ade80;--bad:#f87171;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#171716;--card:#222220;--tx:#efeee9;--mu:#9a988f;--bd:#383835;--ac:#fb923c;--ok:#4ade80;--bad:#f87171;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0 0 12px}h2{font-size:15px;margin:18px 0 8px}
+nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+nav button{padding:8px 12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:8px;cursor:pointer}
+nav button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px}
+.card.alert{border-color:var(--bad);border-width:2px}
+.big{font-size:26px;font-weight:600}.mu{color:var(--mu);font-size:13px}
+.badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;background:var(--bad);color:#fff}
+.badge.ok{background:var(--ok)}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px}
+label{font-size:12px;color:var(--mu);display:flex;flex-direction:column;gap:3px}
+input,select{padding:8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit}
+.go{background:var(--ac);color:#fff;border:0;border-radius:6px;padding:10px;cursor:pointer;align-self:end}
+.tw{overflow-x:auto;margin-top:10px}table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}th{color:var(--mu);font-weight:500}
+#login{max-width:380px}
+#login form{grid-template-columns:1fr}
+</style></head><body><main>
+<h1>Carton Return Tracker</h1>
+<div id="msg" class="mu"></div>
+<section id="login"><form id="loginForm">
+<label>Login as<select id="username"><option value="ota">OTA noodles</option><option value="phc">PHC noodles</option><option value="kaduna">KADUNA noodles</option><option value="aba">ABA noodles</option><option value="seasoning">Seasoning</option></select></label>
+<label>Password<input id="password" type="password" autocomplete="current-password" required></label>
+<button class="go">Log in</button>
+</form></section>
+<nav id="nav"></nav><div id="view"></div>
+</main>
+<script>
+const F=["OTA","PHC","KADUNA","ABA"];
+const C=["dispatch","shifts","returns","receipts"];
+let D={dispatch:[],shifts:[],returns:[],receipts:[]},tab="Dashboard",user=null,token=sessionStorage.getItem("carton_token")||"",thr=500;
+const $=s=>document.querySelector(s);
+const sum=(a,k)=>a.reduce((s,x)=>s+(+x[k]||0),0);
+const now=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);
+const escapeHTML=t=>String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt=t=>t?escapeHTML(String(t).replace("T"," ")):"";
+const fopts=F.map(f=>`<option>${f}</option>`).join("");
+const factoryField=()=>user.role==="seasoning"?`<label>Factory<select id="f_f">${fopts}</select></label>`:`<input id="f_f" type="hidden" value="${user.factory}">`;
+function setAuthenticated(ready){
+ $("#login").hidden=ready;
+ $("#nav").hidden=!ready;
+ $("#view").hidden=!ready;
+}
+function stats(f){
+ const s=D.shifts.filter(x=>x.f===f),r=D.returns.filter(x=>x.f===f),d=D.dispatch.filter(x=>x.f===f);
+ const good=sum(s,"good")+sum(s,"reuse");
+ return{sent:sum(d,"qty"),used:sum(s,"used"),bad:sum(s,"bad"),good,returned:sum(r,"qty"),pile:good-sum(r,"qty"),
+  transit:r.filter(x=>!D.receipts.some(c=>c.rid===x.id)).reduce((a,x)=>a+(+x.qty||0),0)}}
+const field=(id,l,t="text",ex="")=>`<label>${l}<input id="${id}" type="${t}" ${ex}></label>`;
+const val=id=>$("#"+id).value;
+function formHTML(kind){
+ if(kind==="dispatch")return field("f_dt","Date & time","datetime-local",`value="${now()}"`)+factoryField()+field("f_truck","Truck no")+field("f_wb","Waybill no")+field("f_qty","Cartons sent","number")+`<button class="go">Log dispatch</button>`;
+ if(kind==="shifts")return field("f_date","Date","date",`value="${now().slice(0,10)}"`)+factoryField()+`<label>Shift<select id="f_sh"><option>A</option><option>B</option><option>C</option></select></label>`+field("f_used","Consumed","number")+field("f_good","Good","number")+field("f_reuse","Reusable","number")+field("f_bad","Bad","number")+`<button class="go">Save shift</button>`;
+ if(kind==="returns")return factoryField()+field("f_truck","Truck no")+field("f_driver","Driver name")+field("f_ph","Driver phone")+field("f_wb","Waybill no")+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
+ if(kind==="receipts"){const o=D.returns.filter(x=>!D.receipts.some(c=>c.rid===x.id)).map(x=>`<option value="${escapeHTML(x.id)}">${escapeHTML(x.f)} | ${escapeHTML(x.truck)} | ${escapeHTML(x.wb)} | ${escapeHTML(x.qty)}</option>`).join("");
+  return `<label>Truck arrived<select id="f_rid">${o}</select></label>`+field("f_acc","Accepted","number")+field("f_rej","Rejected","number")+field("f_dt","Received","datetime-local",`value="${now()}"`)+`<button class="go">Save sorting</button>`}
+}
+function rec(kind){
+ if(kind==="dispatch")return{f:val("f_f"),truck:val("f_truck"),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt")};
+ if(kind==="shifts")return{f:val("f_f"),date:val("f_date"),sh:val("f_sh"),used:+val("f_used"),good:+val("f_good"),reuse:+val("f_reuse"),bad:+val("f_bad")};
+ if(kind==="returns")return{f:val("f_f"),truck:val("f_truck"),driver:val("f_driver"),ph:val("f_ph"),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt"),eta:val("f_eta")};
+ return{rid:val("f_rid"),acc:+val("f_acc"),rej:+val("f_rej"),dt:val("f_dt")};
+}
+const COLS={dispatch:[["dt","Date/time"],["f","Factory"],["truck","Truck"],["wb","Waybill"],["qty","Qty"]],
+ shifts:[["date","Date"],["sh","Shift"],["f","Factory"],["used","Used"],["good","Good"],["reuse","Reusable"],["bad","Bad"]],
+ returns:[["dt","Dispatched"],["eta","ETA"],["f","Factory"],["truck","Truck"],["driver","Driver"],["ph","Phone"],["wb","Waybill"],["qty","Qty"],["status","Status"]],
+ receipts:[["dt","Received"],["f","Factory"],["truck","Truck"],["wb","Waybill"],["qty","Sent"],["acc","Accepted"],["rej","Rejected"]]};
+function rows(kind){
+ let a=D[kind].slice();
+ if(kind==="returns")a=a.map(x=>({...x,status:D.receipts.some(c=>c.rid===x.id)?"Received":"In transit"}));
+ if(kind==="receipts")a=a.map(x=>{const r=D.returns.find(y=>y.id===x.rid)||{};return{...x,f:r.f,truck:r.truck,wb:r.wb,qty:r.qty}});
+ a.sort((x,y)=>String(y.dt||y.date||"").localeCompare(String(x.dt||x.date||"")));
+ const c=COLS[kind];
+ return `<div class="tw"><table><tr>${c.map(x=>`<th>${x[1]}</th>`).join("")}</tr>${a.map(r=>`<tr>${c.map(x=>`<td>${fmt(r[x[0]]??"")}</td>`).join("")}</tr>`).join("")||`<tr><td class="mu">No entries yet</td></tr>`}</table></div>`}
+function render(){
+ if(!user)return;
+ const tabs=["Dashboard","Seasoning dispatch","Noodle shift log","Return truck","Sorting at seasoning"];
+ if(!tabs.includes(tab))tab="Dashboard";
+ $("#nav").innerHTML=tabs.map(t=>`<button class="${t===tab?"on":""}" data-t="${t}">${t}</button>`).join("")+`<button id="logout">Log out</button>`;
+ const kind={"Seasoning dispatch":"dispatch","Noodle shift log":"shifts","Return truck":"returns","Sorting at seasoning":"receipts"}[tab];
+ let h="";
+ if(!kind){
+  const factories=user.role==="seasoning"?F:[user.factory];
+  h=(user.role==="seasoning"?`<label style="max-width:240px">Alert when good cartons pile up to (qty)<input id="thr" type="number" value="${thr}"></label>`:"")+`<h2>${user.role==="seasoning"?"Per noodle factory":user.factory+" factory"}</h2><div class="grid">`+factories.map(f=>{const s=stats(f),al=s.pile>=thr;
+   return `<div class="card ${al?"alert":""}"><b>${f}</b> ${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}<div class="big">${s.pile}</div><div class="mu">good + reusable waiting to return</div><div class="mu">Sent ${s.sent} | Used ${s.used} | Bad ${s.bad}<br>Returned ${s.returned} | In transit ${s.transit}</div></div>`}).join("")+`</div><h2>Trucks on the way back</h2>`+rows("returns");
+ }else{
+  const canUpdate=user.role==="seasoning"||["shifts","returns"].includes(kind);
+  h=(canUpdate?`<form id="frm">${formHTML(kind)}</form>`:"")+rows(kind);
+ }
+ $("#view").innerHTML=h;
+ document.querySelectorAll("nav button[data-t]").forEach(b=>b.onclick=()=>{tab=b.dataset.t;render()});
+ const logout=$("#logout");logout.onclick=()=>{token="";user=null;sessionStorage.removeItem("carton_token");setAuthenticated(false);$("#msg").textContent="You have been logged out."};
+ const t=$("#thr");if(t)t.onchange=()=>{thr=+t.value||0;api("POST",{kind:"settings",rec:{thr}}).catch(()=>{});render()};
+ const fm=$("#frm");if(fm)fm.onsubmit=async e=>{e.preventDefault();try{await api("POST",{kind,rec:rec(kind)});await load()}catch(x){$("#msg").textContent="Save failed: "+x.message}};
+}
+async function api(m,body,authenticate=true){
+ const headers={"content-type":"application/json"};
+ if(authenticate&&token)headers.authorization=`Bearer ${token}`;
+ const r=await fetch("/api",{method:m,headers,body:body?JSON.stringify(body):undefined});
+ if(!r.ok){const error=new Error(await r.text());error.status=r.status;throw error}
+ return r.json()
+}
+$("#loginForm").onsubmit=async e=>{
+ e.preventDefault();
+ try{
+  const result=await api("POST",{action:"login",username:$("#username").value,password:$("#password").value},false);
+  token=result.token;user=result.user;sessionStorage.setItem("carton_token",token);
+  $("#password").value="";setAuthenticated(true);$("#msg").textContent="";tab="Dashboard";await load();
+ }catch(error){$("#msg").textContent=error.message}
+};
+async function load(){
+ if(!token){setAuthenticated(false);return}
+ try{
+  const d=await api("GET");C.forEach(k=>D[k]=d[k]||[]);user=d.user;
+  if(d.settings&&d.settings.thr!=null)thr=d.settings.thr;
+  setAuthenticated(true);$("#msg").textContent="";
+  const el=document.activeElement;if(!el||!/INPUT|SELECT/.test(el.tagName))render();
+ }catch(error){
+  if(error.status===401){token="";user=null;sessionStorage.removeItem("carton_token");setAuthenticated(false)}
+  $("#msg").textContent=error.message;
+ }
+}
+setAuthenticated(false);load();setInterval(load,15000);
+</script></body></html>
