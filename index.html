@@ -105,15 +105,15 @@ function render(){
  if(!user)return;
  const tabs=["Dashboard","Seasoning dispatch","Noodle shift log","Sorting at seasoning"];
  if(user.role!=="seasoning")tabs.splice(3,0,"Return truck");
- const renderableTabs=user.role==="seasoning"?[...tabs,"Return truck"]:tabs;
- if(!renderableTabs.includes(tab))tab="Dashboard";
+ if(!tabs.includes(tab))tab="Dashboard";
  $("#nav").innerHTML=tabs.map(t=>`<button class="${t===tab?"on":""}" data-t="${t}">${t}</button>`).join("")+`<button id="logout">Log out</button>`;
  const kind={"Seasoning dispatch":"dispatch","Noodle shift log":"shifts","Return truck":"returns","Sorting at seasoning":"receipts"}[tab];
  let h="";
  if(!kind){
   const factories=user.role==="seasoning"?F:[user.factory];
   h=(user.role==="seasoning"?`<label style="max-width:240px">Alert when good cartons pile up to (qty)<input id="thr" type="number" value="${thr}"></label><button class="go" id="syncExcel" type="button">Sync Excel workbooks</button>`:"")+`<h2>${user.role==="seasoning"?"Per noodle factory":user.factory+" factory"}</h2><div class="grid">`+factories.map(f=>{const s=stats(f),al=s.pile>=thr;
-   return `<div class="card ${al?"alert":""}"><b>${f}</b> ${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}<div class="big">${s.pile}</div><div class="mu">good cartons waiting to return</div><div class="mu">Sent ${s.sent} | Used ${s.used} | Bad ${s.bad}<br>Returned ${s.returned} | In transit ${s.transit}</div></div>`}).join("")+`</div><h2>Trucks on the way back</h2>`+rows("returns");
+   const transit=user.role==="seasoning"?"":` | In transit ${s.transit}`;
+   return `<div class="card ${al?"alert":""}"><b>${f}</b> ${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}<div class="big">${s.pile}</div><div class="mu">good cartons waiting to return</div><div class="mu">Sent ${s.sent} | Used ${s.used} | Bad ${s.bad}<br>Returned ${s.returned}${transit}</div></div>`}).join("")+`</div>`+(user.role==="seasoning"?"":`<h2>Trucks on the way back</h2>${rows("returns")}`);
  }else{
   const canUpdate=user.role==="seasoning"||["shifts","returns"].includes(kind);
   h=(canUpdate?`<form id="frm">${editing?.kind===kind?`<div style="grid-column:1/-1">Editing log <button type="button" class="edit" id="cancelEdit">Cancel</button></div>`:""}${formHTML(kind)}</form>`:"")+rows(kind);
