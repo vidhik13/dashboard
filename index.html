@@ -97,8 +97,10 @@ function rows(kind){
  return `<div class="tw"><table><tr>${c.map(x=>`<th>${x[1]}</th>`).join("")}${actionHeader}</tr>${rowHTML||`<tr><td class="mu" colspan="${c.length+(canManage?1:0)}">No entries yet</td></tr>`}</table></div>`}
 function render(){
  if(!user)return;
- const tabs=["Dashboard","Seasoning dispatch","Noodle shift log","Return truck","Sorting at seasoning"];
- if(!tabs.includes(tab))tab="Dashboard";
+ const tabs=["Dashboard","Seasoning dispatch","Noodle shift log","Sorting at seasoning"];
+ if(user.role!=="seasoning")tabs.splice(3,0,"Return truck");
+ const renderableTabs=user.role==="seasoning"?[...tabs,"Return truck"]:tabs;
+ if(!renderableTabs.includes(tab))tab="Dashboard";
  $("#nav").innerHTML=tabs.map(t=>`<button class="${t===tab?"on":""}" data-t="${t}">${t}</button>`).join("")+`<button id="logout">Log out</button>`;
  const kind={"Seasoning dispatch":"dispatch","Noodle shift log":"shifts","Return truck":"returns","Sorting at seasoning":"receipts"}[tab];
  let h="";
