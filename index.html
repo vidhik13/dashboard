@@ -22,6 +22,8 @@ form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8
 label{font-size:12px;color:var(--mu);display:flex;flex-direction:column;gap:3px}
 input,select{padding:8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit}
 .go{background:var(--ac);color:#fff;border:0;border-radius:6px;padding:10px;cursor:pointer;align-self:end}
+.delete{background:transparent;color:var(--bad);border:1px solid var(--bad);border-radius:6px;padding:5px 8px;cursor:pointer}
+.delete:disabled{opacity:.5;cursor:wait}
 .tw{overflow-x:auto;margin-top:10px}table{border-collapse:collapse;width:100%;font-size:13px}
 th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}th{color:var(--mu);font-weight:500}
 #login{max-width:380px}
@@ -82,7 +84,14 @@ function rows(kind){
  if(kind==="receipts")a=a.map(x=>{const r=D.returns.find(y=>y.id===x.rid)||{};return{...x,f:r.f,truck:r.truck,wb:r.wb,qty:r.qty}});
  a.sort((x,y)=>String(y.dt||y.date||"").localeCompare(String(x.dt||x.date||"")));
  const c=COLS[kind];
- return `<div class="tw"><table><tr>${c.map(x=>`<th>${x[1]}</th>`).join("")}</tr>${a.map(r=>`<tr>${c.map(x=>`<td>${fmt(r[x[0]]??"")}</td>`).join("")}</tr>`).join("")||`<tr><td class="mu">No entries yet</td></tr>`}</table></div>`}
+ const canDelete=user.role==="seasoning"||["shifts","returns"].includes(kind);
+ const actionHeader=canDelete?"<th>Action</th>":"";
+ const rowHTML=a.map(r=>{
+  const canDeleteRecord=canDelete&&(user.role==="seasoning"||r.f===user.factory);
+  const action=canDelete?`<td>${canDeleteRecord?`<button class="delete" data-delete-kind="${kind}" data-delete-id="${escapeHTML(r.id)}">Delete</button>`:""}</td>`:"";
+  return `<tr>${c.map(x=>`<td>${fmt(r[x[0]]??"")}</td>`).join("")}${action}</tr>`;
+ }).join("");
+ return `<div class="tw"><table><tr>${c.map(x=>`<th>${x[1]}</th>`).join("")}${actionHeader}</tr>${rowHTML||`<tr><td class="mu" colspan="${c.length+(canDelete?1:0)}">No entries yet</td></tr>`}</table></div>`}
 function render(){
  if(!user)return;
  const tabs=["Dashboard","Seasoning dispatch","Noodle shift log","Return truck","Sorting at seasoning"];
@@ -103,6 +112,22 @@ function render(){
  const logout=$("#logout");logout.onclick=()=>{token="";user=null;sessionStorage.removeItem("carton_token");setAuthenticated(false);$("#msg").textContent="You have been logged out."};
  const t=$("#thr");if(t)t.onchange=()=>{thr=+t.value||0;api("POST",{kind:"settings",rec:{thr}}).catch(()=>{});render()};
  const fm=$("#frm");if(fm)fm.onsubmit=async e=>{e.preventDefault();try{await api("POST",{kind,rec:rec(kind)});await load()}catch(x){$("#msg").textContent="Save failed: "+x.message}};
+ $("#view").querySelectorAll("button[data-delete-kind]").forEach(button=>button.onclick=async()=>{
+  const kind=button.dataset.deleteKind,id=button.dataset.deleteId;
+  const record=D[kind].find(item=>item.id===id);
+  if(!record){$("#msg").textContent="Delete failed: record not found. Refresh and try again.";return}
+  const detail=kind==="returns"?" Any sorting receipt for this return will also be deleted.":"";
+  if(!window.confirm(`Delete this ${kind==="shifts"?"shift":kind==="returns"?"return truck":kind==="receipts"?"sorting":"dispatch"} log? This cannot be undone.${detail}`))return;
+  button.disabled=true;
+  try{
+   await api("POST",{action:"delete",kind,id});
+   await load();
+   $("#msg").textContent="Log deleted.";
+  }catch(error){
+   $("#msg").textContent="Delete failed: "+error.message;
+   button.disabled=false;
+  }
+ });
 }
 async function api(m,body,authenticate=true){
  const headers={"content-type":"application/json"};

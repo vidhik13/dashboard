@@ -24,4 +24,4 @@ In the Netlify site, open **Site configuration → Environment variables** and a
 
 Give each account a unique password. Keep the passwords, signing key, and Redis token private; do not put them in the HTML or commit them to Git. After saving the variables, trigger a new deploy so the function receives them.
 
-The login names are `ota`, `phc`, `kaduna`, `aba`, and `seasoning`. Noodle accounts are restricted to their own factory; the seasoning account can manage all factories. Login sessions expire after eight hours.
+The login names are `ota`, `phc`, `kaduna`, `aba`, and `seasoning`. Noodle accounts are restricted to their own factory and can delete their own shift and return-truck logs. The seasoning account can manage and delete logs for all factories. Deleting a return-truck log also deletes its associated sorting receipt, if it has one. Login sessions expire after eight hours.

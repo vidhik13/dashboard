@@ -75,6 +75,32 @@ export default async function handler(req, res) {
   const user = readToken(req);
   if (!user) return res.status(401).send("Unauthorized");
 
+  if (req.method === "POST" && req.body?.action === "delete") {
+    const { kind, id } = req.body;
+    if (!KINDS.includes(kind)) return res.status(400).send("Bad kind");
+    if (typeof id !== "string" || !id) return res.status(400).send("Invalid record id");
+    if (!isSeasoning(user) && !["shifts", "returns"].includes(kind))
+      return res.status(403).send("This account cannot delete that data");
+
+    const records = await redis.lrange(kind, 0, -1);
+    const record = (records || []).find(item => item.id === id);
+    if (!record) return res.status(404).send("Record not found");
+    if (!isSeasoning(user) && record.f !== user.factory)
+      return res.status(403).send("This account cannot delete that record");
+
+    const removed = await redis.lrem(kind, 1, record);
+    if (!removed) return res.status(409).send("Record changed; refresh and try again");
+
+    if (kind === "returns") {
+      const receipts = await redis.lrange("receipts", 0, -1);
+      for (const receipt of receipts || []) {
+        if (receipt.rid === id) await redis.lrem("receipts", 1, receipt);
+      }
+    }
+
+    return res.status(200).json({ ok: true });
+  }
+
   if (req.method === "GET") {
     const [dispatch, shifts, returns, receipts, settings] = await Promise.all([
       redis.lrange("dispatch", 0, -1),
