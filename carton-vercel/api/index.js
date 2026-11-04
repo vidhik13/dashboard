@@ -1,20 +1,26 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { Redis } from "@upstash/redis";
-import { syncExcelWorkbooks } from "./excel-sync.js";
+import {
+  checkGoogleSheets,
+  importUpstashToSheets,
+  readSheetRecord,
+  readSheetRecords,
+  readSheetSettings,
+  removeSheetRecord,
+  writeSheetRecord,
+  writeSheetSettings,
+} from "./google-sheets-store.js";
+import {
+  deleteFirebaseBackupRecord,
+  readFirebaseUserProfile,
+  syncFirebaseBackup,
+  writeFirebaseBackupRecord,
+  writeFirebaseBackupSettings,
+} from "./firebase-backup.js";
 
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN,
-});
+let redis;
 const KINDS = ["dispatch", "shifts", "returns", "receipts"];
 const FACTORIES = ["OTA", "PHC", "KADUNA", "ABA"];
-const ACCOUNTS = {
-  ota: { role: "noodle", factory: "OTA", password: process.env.NOODLE_PASSWORD_OTA },
-  phc: { role: "noodle", factory: "PHC", password: process.env.NOODLE_PASSWORD_PHC },
-  kaduna: { role: "noodle", factory: "KADUNA", password: process.env.NOODLE_PASSWORD_KADUNA },
-  aba: { role: "noodle", factory: "ABA", password: process.env.NOODLE_PASSWORD_ABA },
-  seasoning: { role: "seasoning", password: process.env.SEASONING_PASSWORD },
-};
 
 function safeEqual(a, b) {
   return timingSafeEqual(
@@ -45,13 +51,53 @@ function readToken(req) {
 
   try {
     const user = JSON.parse(Buffer.from(payload, "base64url").toString());
-    const account = ACCOUNTS[user.username];
-    if (!account || !Number.isFinite(user.exp) || user.exp <= Date.now()) return null;
-    if (user.role !== account.role || user.factory !== account.factory) return null;
-    return { username: user.username, role: user.role, factory: user.factory };
+    if (typeof user.username !== "string" || !Number.isFinite(user.exp) || user.exp <= Date.now())
+      return null;
+    if (user.role === "seasoning" && user.factory === undefined)
+      return { username: user.username, role: user.role };
+    if (user.role === "noodle" && FACTORIES.includes(user.factory))
+      return { username: user.username, role: user.role, factory: user.factory };
+    return null;
   } catch {
     return null;
   }
+}
+
+async function signInWithFirebase(email, password) {
+  const apiKey = process.env.FIREBASE_WEB_API_KEY;
+  if (!apiKey) throw new Error("FIREBASE_WEB_API_KEY is not configured.");
+
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email, password, returnSecureToken: true }),
+    },
+  );
+  const result = await response.json();
+  if (!response.ok) {
+    const authenticationErrors = new Set([
+      "EMAIL_NOT_FOUND",
+      "INVALID_EMAIL",
+      "INVALID_LOGIN_CREDENTIALS",
+      "INVALID_PASSWORD",
+      "USER_DISABLED",
+    ]);
+    if (authenticationErrors.has(result.error?.message))
+      throw new Error("Invalid email or password.");
+    throw new Error("Firebase Authentication could not complete sign-in.");
+  }
+  if (typeof result.localId !== "string" || !result.localId)
+    throw new Error("Firebase Authentication returned an invalid account.");
+  return result.localId;
+}
+
+function isValidUserProfile(profile) {
+  if (!profile || typeof profile.username !== "string" || !profile.username)
+    return false;
+  if (profile.role === "seasoning") return profile.factory === undefined;
+  return profile.role === "noodle" && FACTORIES.includes(profile.factory);
 }
 
 function isSeasoning(user) {
@@ -66,34 +112,96 @@ function normalizeFactoryRecord(record) {
   return record.f === "OA" ? { ...record, f: "OTA" } : record;
 }
 
-async function getRecordFactory(kind, record) {
-  if (["dispatch", "shifts", "returns"].includes(kind))
-    return normalizeFactory(record.f);
-  if (kind === "receipts") {
-    const returns = await redis.lrange("returns", 0, -1);
-    return normalizeFactory((returns || []).find(item => item.id === record.rid)?.f);
-  }
-  return null;
+function hasNonNegativeIntegers(record, fields) {
+  return fields.every(field => Number.isSafeInteger(record[field]) && record[field] >= 0);
 }
 
-async function syncExcelForFactories(factories) {
+function getUpstashRedis() {
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  if (!url || !token) throw new Error("Upstash credentials are not configured for data migration.");
+  if (!redis) redis = new Redis({ url, token });
+  return redis;
+}
+
+async function checkSheets() {
   try {
-    const [dispatch, shifts, returns, receipts] = await Promise.all([
-      redis.lrange("dispatch", 0, -1),
-      redis.lrange("shifts", 0, -1),
-      redis.lrange("returns", 0, -1),
-      redis.lrange("receipts", 0, -1),
-    ]);
-    return await syncExcelWorkbooks({
-      dispatch: dispatch || [],
-      shifts: shifts || [],
-      returns: returns || [],
-      receipts: receipts || [],
-    }, factories);
+    await checkGoogleSheets();
+    return { status: "synced", message: "Google Sheets connection is working." };
   } catch (error) {
     return {
       status: "failed",
-      message: error instanceof Error ? error.message : "Unknown Excel sync error.",
+      message: error instanceof Error ? error.message : "Unknown Google Sheets error.",
+    };
+  }
+}
+
+async function readDashboardData() {
+  const [dispatch, shifts, returns, receipts, settings] = await Promise.all([
+    ...KINDS.map(kind => readSheetRecords(kind)),
+    readSheetSettings(),
+  ]);
+  return {
+    dispatch: dispatch.map(normalizeFactoryRecord),
+    shifts: shifts.map(normalizeFactoryRecord),
+    returns: returns.map(normalizeFactoryRecord),
+    receipts,
+    settings: settings || null,
+  };
+}
+
+async function migrateUpstashToSheets() {
+  try {
+    const source = getUpstashRedis();
+    const [dispatch, shifts, returns, receipts, settings] = await Promise.all([
+      source.lrange("dispatch", 0, -1),
+      source.lrange("shifts", 0, -1),
+      source.lrange("returns", 0, -1),
+      source.lrange("receipts", 0, -1),
+      source.get("settings"),
+    ]);
+    return await importUpstashToSheets({
+      dispatch: (dispatch || []).map(normalizeFactoryRecord),
+      shifts: (shifts || []).map(normalizeFactoryRecord),
+      returns: (returns || []).map(normalizeFactoryRecord),
+      receipts: receipts || [],
+      settings: settings || null,
+    });
+  } catch (error) {
+    return {
+      status: "failed",
+      message: error instanceof Error ? error.message : "Unknown Upstash import error.",
+    };
+  }
+}
+
+function storageResult() {
+  return {
+    storageSync: "synced",
+    storageMessage: "Google Sheets saved.",
+  };
+}
+
+async function backupResult(action) {
+  try {
+    await action();
+    return { backupSync: "synced", backupMessage: "Firebase backup updated." };
+  } catch (error) {
+    return {
+      backupSync: "failed",
+      backupMessage: error instanceof Error ? error.message : "Firebase backup failed.",
+    };
+  }
+}
+
+async function syncBackupFromSheets() {
+  try {
+    const data = await readDashboardData();
+    return await syncFirebaseBackup(data);
+  } catch (error) {
+    return {
+      status: "failed",
+      message: error instanceof Error ? error.message : "Firebase backup sync failed.",
     };
   }
 }
@@ -103,23 +211,77 @@ export default async function handler(req, res) {
     if (!process.env.AUTH_SECRET)
       return res.status(500).send("AUTH_SECRET is not configured");
 
-    const username = String(req.body.username || "").trim().toLowerCase();
+    const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
-    const account = ACCOUNTS[username];
-    if (!account?.password || !safeEqual(password, account.password))
-      return res.status(401).send("Invalid username or password");
+    if (!email || !password) return res.status(400).send("Email and password are required.");
+    let uid;
+    try {
+      uid = await signInWithFirebase(email, password);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Firebase sign-in failed.";
+      const status = message === "Invalid email or password." ? 401 : 500;
+      return res.status(status).send(status === 401 ? message : "Firebase Authentication is not configured correctly.");
+    }
 
-    const user = { username, role: account.role, factory: account.factory };
+    let profile;
+    try {
+      profile = await readFirebaseUserProfile(uid);
+    } catch (error) {
+      console.error("Could not load Firebase user profile:", error);
+      return res.status(500).send("Could not verify account access.");
+    }
+    if (!isValidUserProfile(profile))
+      return res.status(403).send("This Firebase account is not configured for the tracker.");
+
+    const user = {
+      username: profile.username,
+      role: profile.role,
+      ...(profile.factory ? { factory: profile.factory } : {}),
+    };
     return res.status(200).json({ token: createToken(user), user });
   }
 
   const user = readToken(req);
   if (!user) return res.status(401).send("Unauthorized");
 
-  if (req.method === "POST" && req.body?.action === "syncExcel") {
-    if (!isSeasoning(user)) return res.status(403).send("Only seasoning can sync all Excel workbooks");
-    const result = await syncExcelForFactories(FACTORIES);
-    return res.status(200).json({ ok: result.status === "synced", excelSync: result.status, excelMessage: result.message });
+  if (req.method === "POST" && req.body?.action === "checkGoogleSheets") {
+    if (!isSeasoning(user)) return res.status(403).send("Only seasoning can check the Google Sheets connection");
+    const result = await checkSheets();
+    return res.status(200).json({
+      ok: result.status === "synced",
+      sheetsSync: result.status,
+      sheetsMessage: result.message,
+    });
+  }
+
+  if (req.method === "POST" && req.body?.action === "syncFirebaseBackup") {
+    if (!isSeasoning(user)) return res.status(403).send("Only seasoning can sync the Firebase backup");
+    const result = await syncBackupFromSheets();
+    return res.status(200).json({
+      ok: result.status === "synced",
+      backupSync: result.status,
+      backupMessage: result.message,
+    });
+  }
+
+  if (req.method === "POST" && req.body?.action === "migrateUpstash") {
+    if (!isSeasoning(user)) return res.status(403).send("Only seasoning can import Upstash data");
+    const result = await migrateUpstashToSheets();
+    if (result.status !== "synced") {
+      return res.status(200).json({
+        ok: false,
+        migrationStatus: result.status,
+        migrationMessage: result.message,
+      });
+    }
+    const backup = await syncBackupFromSheets();
+    return res.status(200).json({
+      ok: true,
+      migrationStatus: result.status,
+      migrationMessage: result.message,
+      backupSync: backup.status,
+      backupMessage: backup.message,
+    });
   }
 
   if (req.method === "POST" && req.body?.action === "edit") {
@@ -131,32 +293,49 @@ export default async function handler(req, res) {
     if (!isSeasoning(user) && !["shifts", "returns"].includes(kind))
       return res.status(403).send("This account cannot edit that data");
 
-    const records = await redis.lrange(kind, 0, -1);
-    const index = (records || []).findIndex(item => item.id === id);
-    if (index < 0) return res.status(404).send("Record not found");
-    const existing = records[index];
+    const existing = await readSheetRecord(kind, id);
+    if (!existing) return res.status(404).send("Record not found");
     if (!isSeasoning(user) && normalizeFactory(existing.f) !== user.factory)
       return res.status(403).send("This account cannot edit that record");
-    const previousFactory = await getRecordFactory(kind, existing);
-
     const record = { ...rec, id };
     if (["dispatch", "shifts", "returns"].includes(kind)) {
       if (isSeasoning(user) && !FACTORIES.includes(record.f))
         return res.status(400).send("Invalid factory");
       if (!isSeasoning(user)) record.f = user.factory;
     }
+    if (["dispatch", "returns"].includes(kind)) {
+      if (typeof record.truck !== "string" || !/^[A-Za-z0-9]*$/.test(record.truck))
+        return res.status(400).send("Truck number must contain only letters and numbers");
+      record.truck = record.truck.toUpperCase();
+      if (typeof record.wb !== "string" || !/^\d*$/.test(record.wb))
+        return res.status(400).send("Waybill number must contain digits only");
+    }
+    if (kind === "shifts") {
+      if (!hasNonNegativeIntegers(record, ["used", "good", "bad"]))
+        return res.status(400).send("Total, good, and bad cartons must be whole numbers greater than or equal to zero");
+      if (record.good + record.bad !== record.used)
+        return res.status(400).send("Good cartons plus bad cartons must equal total cartons consumed");
+    }
+    if (kind === "returns" && !hasNonNegativeIntegers(record, ["qty"]))
+      return res.status(400).send("Return truck cartons must be a whole number greater than or equal to zero");
+    if (kind === "receipts" && !hasNonNegativeIntegers(record, ["rej"]))
+      return res.status(400).send("Rejected cartons must be a whole number greater than or equal to zero");
     if (kind === "receipts") {
       if (typeof record.rid !== "string" || !record.rid)
         return res.status(400).send("Invalid return truck");
-      const returnRecords = await redis.lrange("returns", 0, -1);
-      if (!(returnRecords || []).some(item => item.id === record.rid))
+      const returnRecord = await readSheetRecord("returns", record.rid);
+      if (!returnRecord)
         return res.status(400).send("Return truck not found");
+      if (!Number.isSafeInteger(returnRecord.qty) || returnRecord.qty < 0)
+        return res.status(400).send("Return truck has an invalid carton total");
+      if (record.rej > returnRecord.qty)
+        return res.status(400).send("Rejected cartons cannot exceed the return truck total");
+      record.acc = returnRecord.qty - record.rej;
     }
 
-    const nextFactory = await getRecordFactory(kind, record);
-    await redis.lset(kind, index, record);
-    const excel = await syncExcelForFactories([previousFactory, nextFactory]);
-    return res.status(200).json({ ok: true, id, excelSync: excel.status, excelMessage: excel.message });
+    await writeSheetRecord(kind, record);
+    const backup = await backupResult(() => writeFirebaseBackupRecord(kind, record));
+    return res.status(200).json({ ok: true, id, ...storageResult(), ...backup });
   }
 
   if (req.method === "POST" && req.body?.action === "delete") {
@@ -166,38 +345,31 @@ export default async function handler(req, res) {
     if (!isSeasoning(user) && !["shifts", "returns"].includes(kind))
       return res.status(403).send("This account cannot delete that data");
 
-    const records = await redis.lrange(kind, 0, -1);
-    const record = (records || []).find(item => item.id === id);
+    const record = await readSheetRecord(kind, id);
     if (!record) return res.status(404).send("Record not found");
     if (!isSeasoning(user) && normalizeFactory(record.f) !== user.factory)
       return res.status(403).send("This account cannot delete that record");
-    const factory = await getRecordFactory(kind, record);
-
-    const removed = await redis.lrem(kind, 1, record);
-    if (!removed) return res.status(409).send("Record changed; refresh and try again");
-
+    const receiptRecords = kind === "returns"
+      ? (await readSheetRecords("receipts")).filter(receipt => receipt.rid === id)
+      : [];
     if (kind === "returns") {
-      const receipts = await redis.lrange("receipts", 0, -1);
-      for (const receipt of receipts || []) {
-        if (receipt.rid === id) await redis.lrem("receipts", 1, receipt);
-      }
+      await Promise.all(receiptRecords.map(receipt => removeSheetRecord("receipts", receipt.id)));
     }
-
-    const excel = await syncExcelForFactories([factory]);
-    return res.status(200).json({ ok: true, excelSync: excel.status, excelMessage: excel.message });
+    await removeSheetRecord(kind, id);
+    const backup = await backupResult(async () => {
+      await Promise.all([
+        ...receiptRecords.map(receipt => deleteFirebaseBackupRecord("receipts", receipt.id)),
+        deleteFirebaseBackupRecord(kind, id),
+      ]);
+    });
+    return res.status(200).json({ ok: true, ...storageResult(), ...backup });
   }
 
   if (req.method === "GET") {
-    const [dispatch, shifts, returns, receipts, settings] = await Promise.all([
-      redis.lrange("dispatch", 0, -1),
-      redis.lrange("shifts", 0, -1),
-      redis.lrange("returns", 0, -1),
-      redis.lrange("receipts", 0, -1),
-      redis.get("settings"),
-    ]);
-    const normalizedDispatch = (dispatch || []).map(normalizeFactoryRecord);
-    const normalizedShifts = (shifts || []).map(normalizeFactoryRecord);
-    const normalizedReturns = (returns || []).map(normalizeFactoryRecord);
+    const { dispatch, shifts, returns, receipts, settings } = await readDashboardData();
+    const normalizedDispatch = dispatch;
+    const normalizedShifts = shifts;
+    const normalizedReturns = returns;
     const visibleReturns = isSeasoning(user)
       ? normalizedReturns
       : normalizedReturns.filter(record => record.f === user.factory);
@@ -207,7 +379,7 @@ export default async function handler(req, res) {
       dispatch: normalizedDispatch.filter(record => isSeasoning(user) || record.f === user.factory),
       shifts: normalizedShifts.filter(record => isSeasoning(user) || record.f === user.factory),
       returns: visibleReturns,
-      receipts: (receipts || []).filter(record =>
+      receipts: receipts.filter(record =>
         isSeasoning(user) || visibleReturnIds.has(record.rid),
       ),
       settings: isSeasoning(user) ? settings || {} : {},
@@ -222,8 +394,15 @@ export default async function handler(req, res) {
       const threshold = Number(rec?.thr);
       if (!Number.isFinite(threshold) || threshold < 0)
         return res.status(400).send("Invalid threshold");
-      await redis.set("settings", { thr: threshold });
-      return res.status(200).json({ ok: true });
+      const settings = { thr: threshold };
+      await writeSheetSettings(settings);
+      const backup = await backupResult(() => writeFirebaseBackupSettings(settings));
+      return res.status(200).json({
+        ok: true,
+        storageSync: "synced",
+        storageMessage: "Google Sheets saved.",
+        ...backup,
+      });
     }
 
     if (!KINDS.includes(kind)) return res.status(400).send("Bad kind");
@@ -238,19 +417,41 @@ export default async function handler(req, res) {
         return res.status(400).send("Invalid factory");
       if (!isSeasoning(user)) record.f = user.factory;
     }
+    if (["dispatch", "returns"].includes(kind)) {
+      if (typeof record.truck !== "string" || !/^[A-Za-z0-9]*$/.test(record.truck))
+        return res.status(400).send("Truck number must contain only letters and numbers");
+      record.truck = record.truck.toUpperCase();
+      if (typeof record.wb !== "string" || !/^\d*$/.test(record.wb))
+        return res.status(400).send("Waybill number must contain digits only");
+    }
+    if (kind === "shifts") {
+      if (!hasNonNegativeIntegers(record, ["used", "good", "bad"]))
+        return res.status(400).send("Total, good, and bad cartons must be whole numbers greater than or equal to zero");
+      if (record.good + record.bad !== record.used)
+        return res.status(400).send("Good cartons plus bad cartons must equal total cartons consumed");
+    }
+    if (kind === "returns" && !hasNonNegativeIntegers(record, ["qty"]))
+      return res.status(400).send("Return truck cartons must be a whole number greater than or equal to zero");
+    if (kind === "receipts" && !hasNonNegativeIntegers(record, ["rej"]))
+      return res.status(400).send("Rejected cartons must be a whole number greater than or equal to zero");
     if (kind === "receipts") {
       if (typeof record.rid !== "string" || !record.rid)
         return res.status(400).send("Invalid return truck");
-      const returnRecords = await redis.lrange("returns", 0, -1);
-      if (!(returnRecords || []).some(item => item.id === record.rid))
+      const returnRecord = await readSheetRecord("returns", record.rid);
+      if (!returnRecord)
         return res.status(400).send("Return truck not found");
+      if (!Number.isSafeInteger(returnRecord.qty) || returnRecord.qty < 0)
+        return res.status(400).send("Return truck has an invalid carton total");
+      if (record.rej > returnRecord.qty)
+        return res.status(400).send("Rejected cartons cannot exceed the return truck total");
+      record.acc = returnRecord.qty - record.rej;
     }
 
-    const factory = await getRecordFactory(kind, record);
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    await redis.rpush(kind, { ...record, id });
-    const excel = await syncExcelForFactories([factory]);
-    return res.status(200).json({ ok: true, id, excelSync: excel.status, excelMessage: excel.message });
+    const savedRecord = { ...record, id };
+    await writeSheetRecord(kind, savedRecord);
+    const backup = await backupResult(() => writeFirebaseBackupRecord(kind, savedRecord));
+    return res.status(200).json({ ok: true, id, ...storageResult(), ...backup });
   }
 
   return res.status(405).send("Method not allowed");

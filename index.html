@@ -27,29 +27,78 @@ input,select{padding:8px;border:1px solid var(--bd);border-radius:6px;background
 .edit:disabled,.delete:disabled{opacity:.5;cursor:wait}
 .tw{overflow-x:auto;margin-top:10px}table{border-collapse:collapse;width:100%;font-size:13px}
 th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}th{color:var(--mu);font-weight:500}
-#login{max-width:380px}
-#login form{grid-template-columns:1fr}
-</style></head><body><main>
-<h1>Carton Return Tracker</h1>
-<div id="msg" class="mu"></div>
-<section id="login"><form id="loginForm">
-<label>Login as<select id="username"><option value="ota">OTA noodles</option><option value="phc">PHC noodles</option><option value="kaduna">KADUNA noodles</option><option value="aba">ABA noodles</option><option value="seasoning">Seasoning</option></select></label>
+body.login-mode{min-height:100vh;background:radial-gradient(ellipse at 18% 18%,rgba(194,65,12,.09),transparent 38%),var(--bg)}
+body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:border-box;display:grid;place-items:center;padding:32px 20px}
+#login{width:min(920px,100%);margin:auto}
+.login-logo{display:flex;justify-content:center;margin:0 auto 18px}
+.login-logo img{display:block;width:156px;height:auto;object-fit:contain}
+.login-card{display:grid;grid-template-columns:1fr 1fr;min-height:500px;overflow:hidden;background:var(--card);border:1px solid var(--bd);border-radius:24px;box-shadow:0 24px 70px rgba(40,32,20,.14)}
+.login-brand{position:relative;isolation:isolate;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;padding:42px;color:#fff;background:linear-gradient(145deg,#29251f 4%,#46301f 58%,#8d3c16)}
+.login-brand:before,.login-brand:after{content:"";position:absolute;z-index:-1;border:1px solid rgba(255,255,255,.12);border-radius:50%}
+.login-brand:before{width:350px;height:350px;right:-180px;top:-150px}
+.login-brand:after{width:270px;height:270px;right:-125px;top:-110px}
+.login-mark{display:grid;place-items:center;width:48px;height:48px;border:1px solid rgba(255,255,255,.35);border-radius:15px;background:rgba(255,255,255,.1);font-size:14px;font-weight:800;letter-spacing:.08em}
+.login-kicker{margin:30px 0 10px;color:#f5b98f;font-size:11px;font-weight:700;letter-spacing:.18em}
+.login-brand h2{max-width:350px;margin:0;font-size:34px;line-height:1.12;letter-spacing:-.04em}
+.login-description{max-width:350px;margin:16px 0 0;color:rgba(255,255,255,.72);font-size:14px;line-height:1.7}
+.login-route{display:flex;align-items:center;gap:12px;margin-top:30px;color:rgba(255,255,255,.82);font-size:11px;font-weight:650;letter-spacing:.1em}
+.route-line{width:48px;height:1px;background:rgba(255,255,255,.45)}
+.route-dot{width:7px;height:7px;border-radius:50%;background:#ffb27b;box-shadow:0 0 14px rgba(255,178,123,.65)}
+.login-footnote{margin:0;color:rgba(255,255,255,.58);font-size:12px}
+.login-panel{display:flex;flex-direction:column;justify-content:center;padding:48px clamp(28px,6vw,68px)}
+.login-panel h2{margin:0;font-size:24px;letter-spacing:-.03em}
+.login-panel>p{margin:7px 0 26px;color:var(--mu);font-size:14px}
+#loginMsg{min-height:20px;margin-bottom:10px;color:var(--bad);font-size:13px}
+#login form{grid-template-columns:1fr;gap:16px;padding:0;border:0;background:transparent}
+#login label{gap:7px;font-size:12px;font-weight:650;color:var(--tx)}
+#login input,#login select{min-height:48px;padding:10px 12px;border-color:var(--bd);border-radius:9px;background:var(--bg)}
+#login input:focus,#login select:focus{outline:2px solid var(--ac);outline-offset:1px;border-color:var(--ac)}
+#login .go{min-height:48px;margin-top:4px;border-radius:9px;font-weight:700;letter-spacing:.01em}
+@media(max-width:680px){
+ body.login-mode main{padding:18px 14px}
+ .login-card{grid-template-columns:1fr;min-height:0;border-radius:20px}
+ .login-brand{min-height:245px;padding:26px 28px}
+ .login-brand h2{font-size:28px}
+ .login-description{margin-top:10px}
+ .login-route{margin-top:18px}
+ .login-footnote{display:none}
+ .login-panel{padding:30px 28px 34px}
+}
+</style></head><body class="login-mode"><main>
+<section id="login"><div class="login-logo"><img src="dufil-logo.png" alt="Dufil Prima Foods logo" width="320" height="80"></div><div class="login-card">
+<div class="login-brand">
+<div><div class="login-mark" aria-hidden="true">CR</div><p class="login-kicker">CARTON OPERATIONS</p><h2>Every return, accounted for.</h2><p class="login-description">A clear view of dispatches, factory shifts, and cartons on their way back.</p>
+<div class="login-route" aria-hidden="true"><span>FACTORY</span><i class="route-dot"></i><i class="route-line"></i><i class="route-dot"></i><span>SEASONING</span></div></div>
+<p class="login-footnote">Private operations dashboard · Authorized users only</p>
+</div>
+<div class="login-panel">
+<h2>Welcome back</h2><p>Sign in with your Firebase account.</p>
+<div id="loginMsg" role="status" aria-live="polite"></div>
+<form id="loginForm">
+<label>Email address<input id="email" type="email" autocomplete="username" required></label>
 <label>Password<input id="password" type="password" autocomplete="current-password" required></label>
 <button class="go">Log in</button>
-</form></section>
-<nav id="nav"></nav><div id="view"></div>
-</main>
+ </form></div></div></section>
+<div id="app" hidden>
+<h1>Carton Return Tracker</h1>
+<div id="msg" class="mu"></div>
+<nav id="nav" hidden></nav><div id="view" hidden></div>
+</div></main>
 <script>
 const F=["OTA","PHC","KADUNA","ABA"];
 const C=["dispatch","shifts","returns","receipts"];
 let D={dispatch:[],shifts:[],returns:[],receipts:[]},tab="Dashboard",user=null,token=sessionStorage.getItem("carton_token")||"",thr=500;
 const $=s=>document.querySelector(s);
 const sum=(a,k)=>a.reduce((s,x)=>s+(+x[k]||0),0);
-const excelSyncMessage=(result,action)=>{
- if(result.excelSync==="synced")return `${action}. Excel workbook updated.`;
- if(result.excelSync==="failed"||result.excelSync==="not_configured")
-  return `${action} in dashboard, but ${result.excelMessage}`;
- return `${action} in dashboard, but Excel sync status could not be confirmed. Ask Seasoning to sync the workbook.`;
+const storageMessage=(result,action)=>{
+ const messages=[`${action}.`];
+ if(result.storageSync==="synced")messages.push("Saved to Google Sheets.");
+ else if(result.storageSync==="failed"||result.storageSync==="not_configured")messages.push(result.storageMessage);
+ else messages.push("Google Sheets save status could not be confirmed.");
+ if(result.backupSync==="synced")messages.push("Firebase backup updated.");
+ else if(result.backupSync==="failed"||result.backupSync==="not_configured")messages.push("Firebase backup warning: "+result.backupMessage);
+ else messages.push("Firebase backup status could not be confirmed.");
+ return messages.join(" ");
 };
 const now=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);
 const escapeHTML=t=>String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -59,30 +108,47 @@ const fopts=F.map(f=>`<option>${f}</option>`).join("");
 const factoryField=()=>user.role==="seasoning"?`<label>Factory<select id="f_f">${fopts}</select></label>`:`<input id="f_f" type="hidden" value="${user.factory}">`;
 function setAuthenticated(ready){
  $("#login").hidden=ready;
+ $("#app").hidden=!ready;
+ document.body.classList.toggle("login-mode",!ready);
  $("#nav").hidden=!ready;
  $("#view").hidden=!ready;
+ if(!ready){$("#nav").replaceChildren();$("#view").replaceChildren()}
 }
 function stats(f){
  const s=D.shifts.filter(x=>x.f===f),r=D.returns.filter(x=>x.f===f),d=D.dispatch.filter(x=>x.f===f);
  const good=sum(s,"good");
  return{sent:sum(d,"qty"),used:sum(s,"used"),bad:sum(s,"bad"),good,returned:sum(r,"qty"),pile:good-sum(r,"qty"),
+  trucksInTransit:r.filter(x=>!D.receipts.some(c=>c.rid===x.id)).length,
   transit:r.filter(x=>!D.receipts.some(c=>c.rid===x.id)).reduce((a,x)=>a+(+x.qty||0),0)}}
+function truckEtaSummary(factory){
+ const dispatches=D.dispatch.filter(x=>x.f===factory&&x.eta);
+ const returns=D.returns.filter(x=>x.f===factory&&!D.receipts.some(c=>c.rid===x.id));
+ const lines=[
+  ...dispatches.map(x=>`Dispatch truck ${fmt(x.truck||"")}: ${fmt(x.eta)}`),
+  ...returns.map(x=>`Return truck ${fmt(x.truck||"")}: ${fmt(x.eta||"ETA not entered")}`)
+ ];
+ return lines.length?lines.map(line=>`<div>${line}</div>`).join(""):`<div class="mu">No truck ETAs recorded</div>`;
+}
 const field=(id,l,t="text",ex="")=>`<label>${l}<input id="${id}" type="${t}" ${ex}></label>`;
+const truckNumberField=()=>field("f_truck","Truck no","text",'autocapitalize="characters" autocomplete="off" spellcheck="false" pattern="[A-Za-z0-9]*"');
+const wholeNumberField=(id,label,required=false)=>field(id,label,"text",`inputmode="numeric" pattern="[0-9]*" autocomplete="off"${required?" required":""}`);
+const waybillField=()=>wholeNumberField("f_wb","Waybill no");
+const calculatedNumberField=(id,label)=>field(id,label,"text",'inputmode="numeric" readonly');
 const val=id=>$("#"+id).value;
 function formHTML(kind){
- if(kind==="dispatch")return field("f_dt","Date & time","datetime-local",`value="${now()}"`)+factoryField()+field("f_truck","Truck no")+field("f_wb","Waybill no")+field("f_qty","Cartons sent","number")+`<button class="go">Log dispatch</button>`;
- if(kind==="shifts")return field("f_date","Date","date",`value="${now().slice(0,10)}"`)+factoryField()+`<label>Shift<select id="f_sh"><option>A</option><option>B</option><option>C</option></select></label>`+field("f_used","Consumed","number")+field("f_good","Good","number")+field("f_bad","Bad","number")+`<button class="go">Save shift</button>`;
- if(kind==="returns")return factoryField()+field("f_truck","Truck no")+field("f_driver","Driver name")+field("f_ph","Driver phone")+field("f_wb","Waybill no")+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
+ if(kind==="dispatch")return field("f_dt","Date & time","datetime-local",`value="${now()}"`)+factoryField()+truckNumberField()+waybillField()+field("f_qty","Cartons sent","number")+field("f_eta","ETA","datetime-local")+`<button class="go">Log dispatch</button>`;
+ if(kind==="shifts")return field("f_date","Date","date",`value="${now().slice(0,10)}"`)+factoryField()+`<label>Shift<select id="f_sh"><option>A</option><option>B</option><option>C</option></select></label>`+wholeNumberField("f_used","Total cartons consumed",true)+wholeNumberField("f_good","Good cartons",true)+wholeNumberField("f_bad","Bad cartons",true)+`<div class="mu" style="grid-column:1/-1">Enter Good or Bad cartons first; the other is calculated from the total.</div><button class="go">Save shift</button>`;
+ if(kind==="returns")return factoryField()+truckNumberField()+field("f_driver","Driver name")+field("f_ph","Driver phone")+waybillField()+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
  if(kind==="receipts"){const current=editing?.kind==="receipts"?D.receipts.find(x=>x.id===editing.id):null;const o=D.returns.filter(x=>!D.receipts.some(c=>c.rid===x.id)||x.id===current?.rid).map(x=>`<option value="${escapeHTML(x.id)}">${escapeHTML(x.f)} | ${escapeHTML(x.truck)} | ${escapeHTML(x.wb)} | ${escapeHTML(x.qty)}</option>`).join("");
-  return `<label>Truck arrived<select id="f_rid">${o}</select></label>`+field("f_acc","Accepted","number")+field("f_rej","Rejected","number")+field("f_dt","Received","datetime-local",`value="${now()}"`)+`<button class="go">Save sorting</button>`}
+  return `<label>Truck arrived<select id="f_rid">${o}</select></label>`+calculatedNumberField("f_acc","Accepted cartons (calculated)")+wholeNumberField("f_rej","Rejected")+field("f_dt","Received","datetime-local",`value="${now()}"`)+`<button class="go">Save sorting</button>`}
 }
 function rec(kind){
- if(kind==="dispatch")return{f:val("f_f"),truck:val("f_truck"),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt")};
+ if(kind==="dispatch")return{f:val("f_f"),truck:val("f_truck").toUpperCase(),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt"),eta:val("f_eta")};
  if(kind==="shifts")return{f:val("f_f"),date:val("f_date"),sh:val("f_sh"),used:+val("f_used"),good:+val("f_good"),bad:+val("f_bad")};
- if(kind==="returns")return{f:val("f_f"),truck:val("f_truck"),driver:val("f_driver"),ph:val("f_ph"),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt"),eta:val("f_eta")};
+ if(kind==="returns")return{f:val("f_f"),truck:val("f_truck").toUpperCase(),driver:val("f_driver"),ph:val("f_ph"),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt"),eta:val("f_eta")};
  return{rid:val("f_rid"),acc:+val("f_acc"),rej:+val("f_rej"),dt:val("f_dt")};
 }
-const COLS={dispatch:[["dt","Date/time"],["f","Factory"],["truck","Truck"],["wb","Waybill"],["qty","Qty"]],
+const COLS={dispatch:[["dt","Date/time"],["eta","ETA"],["f","Factory"],["truck","Truck"],["wb","Waybill"],["qty","Qty"]],
  shifts:[["date","Date"],["sh","Shift"],["f","Factory"],["used","Used"],["good","Good"],["bad","Bad"]],
  returns:[["dt","Dispatched"],["eta","ETA"],["f","Factory"],["truck","Truck"],["driver","Driver"],["ph","Phone"],["wb","Waybill"],["qty","Qty"],["status","Status"]],
  receipts:[["dt","Received"],["f","Factory"],["truck","Truck"],["wb","Waybill"],["qty","Sent"],["acc","Accepted"],["rej","Rejected"]]};
@@ -112,32 +178,105 @@ function render(){
  let h="";
  if(!kind){
   const factories=user.role==="seasoning"?F:[user.factory];
-  h=(user.role==="seasoning"?`<label style="max-width:240px">Alert when good cartons pile up to (qty)<input id="thr" type="number" value="${thr}"></label><button class="go" id="syncExcel" type="button">Sync Excel workbook</button>`:"")+`<h2>${user.role==="seasoning"?"Per noodle factory":user.factory+" factory"}</h2><div class="grid">`+factories.map(f=>{const s=stats(f),al=s.pile>=thr;
-   const transit=user.role==="seasoning"?"":` | In transit ${s.transit}`;
-   return `<div class="card ${al?"alert":""}"><b>${f}</b> ${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}<div class="big">${s.pile}</div><div class="mu">good cartons waiting to return</div><div class="mu">Sent ${s.sent} | Used ${s.used} | Bad ${s.bad}<br>Returned ${s.returned}${transit}</div></div>`}).join("")+`</div>`+(user.role==="seasoning"?"":`<h2>Trucks on the way back</h2>${rows("returns")}`);
+  h=(user.role==="seasoning"?`<label style="max-width:240px">Alert when good cartons pile up to (qty)<input id="thr" type="number" value="${thr}"></label><button class="go" id="checkGoogleSheets" type="button">Check Google Sheets</button><button class="go" id="syncFirebaseBackup" type="button">Sync Firebase backup</button><button class="go" id="migrateUpstash" type="button">Import existing Upstash data</button>`:"")+`<h2>${user.role==="seasoning"?"Per noodle factory":user.factory+" factory"}</h2><div class="grid">`+factories.map(f=>{const s=stats(f),al=s.pile>=thr;
+   const transit=user.role==="seasoning"
+    ?` | Trucks in transit ${s.trucksInTransit} (${s.transit} cartons)`
+    :` | In transit ${s.transit}`;
+   return `<div class="card ${al?"alert":""}"><b>${f}</b> ${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}<div class="big">${s.pile}</div><div class="mu">good cartons waiting to return</div><div class="mu">Sent ${s.sent} | Used ${s.used} | Bad ${s.bad}<br>Returned ${s.returned}${transit}</div>${user.role==="seasoning"?`<div class="mu"><b>Truck ETAs</b>${truckEtaSummary(f)}</div>`:""}</div>`}).join("")+`</div>`+(user.role==="seasoning"?"":`<h2>Trucks on the way back</h2>${rows("returns")}`);
  }else{
   const isSeasoningReturnTracking=user.role==="seasoning"&&tab==="Return trucks tracking";
   const canUpdate=!isSeasoningReturnTracking&&(user.role==="seasoning"||["shifts","returns"].includes(kind));
   h=(canUpdate?`<form id="frm">${editing?.kind===kind?`<div style="grid-column:1/-1">Editing log <button type="button" class="edit" id="cancelEdit">Cancel</button></div>`:""}${formHTML(kind)}</form>`:"")+rows(kind,isSeasoningReturnTracking);
  }
  $("#view").innerHTML=h;
+ for(const input of $("#view").querySelectorAll("#f_good,#f_bad,#f_rej,#f_wb,#f_used")){
+  input.onbeforeinput=event=>{
+   if(event.inputType==="insertText"&&event.data&&/\D/.test(event.data))event.preventDefault();
+  };
+  input.oninput=()=>{
+   const caret=input.selectionStart??input.value.length;
+   const position=input.value.slice(0,caret).replace(/\D/g,"").length;
+   input.value=input.value.replace(/\D/g,"");
+   input.setSelectionRange(position,position);
+  };
+ }
+ const truckInput=$("#f_truck");if(truckInput)truckInput.oninput=()=>{
+  const caret=truckInput.selectionStart??truckInput.value.length;
+  const position=truckInput.value.slice(0,caret).replace(/[^a-z0-9]/gi,"").length;
+  truckInput.value=truckInput.value.toUpperCase().replace(/[^A-Z0-9]/g,"");
+  truckInput.setSelectionRange(position,position);
+ };
  if(editing&&editing.kind===kind){
   const record=D[kind].find(item=>item.id===editing.id);
-  const fields={dispatch:{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt"},shifts:{f:"f_f",date:"f_date",sh:"f_sh",used:"f_used",good:"f_good",bad:"f_bad"},returns:{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
-  if(record)for(const [key,id] of Object.entries(fields)){const input=$("#"+id);if(input)input.value=record[key]??""}
+  const fields={dispatch:{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},shifts:{f:"f_f",date:"f_date",sh:"f_sh",used:"f_used",good:"f_good",bad:"f_bad"},returns:{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
+  if(record)for(const [key,id] of Object.entries(fields)){const input=$("#"+id);if(input)input.value=key==="truck"?String(record[key]??"").toUpperCase().replace(/[^A-Z0-9]/g,""):record[key]??""}
   const submit=$("#frm .go");if(submit)submit.textContent="Save changes";
  }
+ let shiftCartonInputMode=null;
+ const updateCalculatedCartons=()=>{
+  const totalInput=$("#f_used"),badInput=$("#f_bad"),goodOutput=$("#f_good");
+  if(totalInput&&badInput&&goodOutput){
+   const total=totalInput.value===""?null:Number(totalInput.value);
+   const driver=shiftCartonInputMode==="good"?goodOutput:badInput;
+   const calculated=shiftCartonInputMode==="good"?badInput:goodOutput;
+   const entered=driver.value===""?null:Number(driver.value);
+   const valid=Number.isSafeInteger(total)&&Number.isSafeInteger(entered)&&total>=0&&entered>=0&&entered<=total;
+   if(shiftCartonInputMode!==null)calculated.value=valid?String(total-entered):"";
+   goodOutput.readOnly=shiftCartonInputMode==="bad";
+   badInput.readOnly=shiftCartonInputMode==="good";
+  }
+  const truckInput=$("#f_rid"),rejectedInput=$("#f_rej"),acceptedOutput=$("#f_acc");
+  if(truckInput&&rejectedInput&&acceptedOutput){
+   const truck=D.returns.find(record=>record.id===truckInput.value);
+   const total=truck?Number(truck.qty):null;
+   const rejected=rejectedInput.value===""?0:Number(rejectedInput.value);
+   acceptedOutput.value=Number.isSafeInteger(total)&&Number.isSafeInteger(rejected)&&total>=0&&rejected>=0&&rejected<=total?String(total-rejected):"";
+  }
+ };
+ for(const id of ["#f_used","#f_bad","#f_rid","#f_rej"]){
+  const input=$(id);if(input)input.addEventListener("input",updateCalculatedCartons);
+  if(input&&id==="#f_rid")input.addEventListener("change",updateCalculatedCartons);
+ }
+ const goodInput=$("#f_good"),badInput=$("#f_bad");
+ if(goodInput)goodInput.addEventListener("input",()=>{shiftCartonInputMode="good";updateCalculatedCartons()});
+ if(badInput)badInput.addEventListener("input",()=>{shiftCartonInputMode="bad";updateCalculatedCartons()});
+ updateCalculatedCartons();
  document.querySelectorAll("nav button[data-t]").forEach(b=>b.onclick=()=>{editing=null;tab=b.dataset.t;render()});
- const logout=$("#logout");logout.onclick=()=>{token="";user=null;editing=null;sessionStorage.removeItem("carton_token");setAuthenticated(false);$("#msg").textContent="You have been logged out."};
- const t=$("#thr");if(t)t.onchange=()=>{thr=+t.value||0;api("POST",{kind:"settings",rec:{thr}}).catch(()=>{});render()};
- const syncButton=$("#syncExcel");if(syncButton)syncButton.onclick=async()=>{
-  syncButton.disabled=true;
+ const logout=$("#logout");logout.onclick=()=>{token="";user=null;editing=null;sessionStorage.removeItem("carton_token");$("#loginMsg").textContent="You have been logged out.";setAuthenticated(false)};
+ const t=$("#thr");if(t)t.onchange=async()=>{
+  thr=+t.value||0;render();
   try{
-   const result=await api("POST",{action:"syncExcel"});
-   $("#msg").textContent=result.excelMessage;
+   const result=await api("POST",{kind:"settings",rec:{thr}});
+   if(result.storageSync!=="synced")$("#msg").textContent=result.storageMessage;
+  }catch(error){$("#msg").textContent="Settings update failed: "+error.message}
+ };
+ const sheetsButton=$("#checkGoogleSheets");if(sheetsButton)sheetsButton.onclick=async()=>{
+  sheetsButton.disabled=true;
+  try{
+   const result=await api("POST",{action:"checkGoogleSheets"});
+   $("#msg").textContent=result.sheetsMessage;
   }catch(error){
-   $("#msg").textContent="Excel sync failed: "+error.message;
-  }finally{syncButton.disabled=false}
+   $("#msg").textContent="Google Sheets check failed: "+error.message;
+  }finally{sheetsButton.disabled=false}
+ };
+ const backupButton=$("#syncFirebaseBackup");if(backupButton)backupButton.onclick=async()=>{
+  backupButton.disabled=true;
+  try{
+   const result=await api("POST",{action:"syncFirebaseBackup"});
+   $("#msg").textContent=result.backupMessage;
+  }catch(error){
+   $("#msg").textContent="Firebase backup failed: "+error.message;
+  }finally{backupButton.disabled=false}
+ };
+ const migrationButton=$("#migrateUpstash");if(migrationButton)migrationButton.onclick=async()=>{
+  if(!window.confirm("Import existing Upstash records into Google Sheets and Firebase? This one-time import merges rows and cannot be run again after it completes."))return;
+  migrationButton.disabled=true;
+  try{
+   const result=await api("POST",{action:"migrateUpstash"});
+   $("#msg").textContent=result.migrationMessage+(result.backupSync==="failed"?` Firebase backup warning: ${result.backupMessage}`:"");
+  }catch(error){
+   $("#msg").textContent="Upstash import failed: "+error.message;
+  }finally{migrationButton.disabled=false}
  };
  const fm=$("#frm");if(fm)fm.onsubmit=async e=>{
   e.preventDefault();
@@ -146,7 +285,7 @@ function render(){
    const result=await api("POST",currentEdit?{action:"edit",kind,id:currentEdit.id,rec:rec(kind)}:{kind,rec:rec(kind)});
    editing=null;
    await load();
-   $("#msg").textContent=excelSyncMessage(result,currentEdit?"Log updated":"Log saved");
+   $("#msg").textContent=storageMessage(result,currentEdit?"Log updated":"Log saved");
   }catch(x){$("#msg").textContent=(currentEdit?"Edit":"Save")+" failed: "+x.message}
  };
  const cancelEdit=$("#cancelEdit");if(cancelEdit)cancelEdit.onclick=()=>{editing=null;render()};
@@ -167,7 +306,7 @@ function render(){
    const result=await api("POST",{action:"delete",kind,id});
    editing=null;
    await load();
-   $("#msg").textContent=excelSyncMessage(result,"Log deleted");
+   $("#msg").textContent=storageMessage(result,"Log deleted");
   }catch(error){
    $("#msg").textContent="Delete failed: "+error.message;
    button.disabled=false;
@@ -184,10 +323,10 @@ async function api(m,body,authenticate=true){
 $("#loginForm").onsubmit=async e=>{
  e.preventDefault();
  try{
-  const result=await api("POST",{action:"login",username:$("#username").value,password:$("#password").value},false);
+  const result=await api("POST",{action:"login",email:$("#email").value,password:$("#password").value},false);
   token=result.token;user=result.user;sessionStorage.setItem("carton_token",token);
-  $("#password").value="";setAuthenticated(true);$("#msg").textContent="";tab="Dashboard";await load();
- }catch(error){$("#msg").textContent=error.message}
+  $("#password").value="";$("#loginMsg").textContent="";setAuthenticated(true);$("#msg").textContent="";tab="Dashboard";await load();
+ }catch(error){$("#loginMsg").textContent=error.message}
 };
 async function load(){
  if(!token){setAuthenticated(false);return}
@@ -197,7 +336,7 @@ async function load(){
   setAuthenticated(true);$("#msg").textContent="";
   const el=document.activeElement;if(!el||!/INPUT|SELECT/.test(el.tagName))render();
  }catch(error){
-  if(error.status===401){token="";user=null;editing=null;sessionStorage.removeItem("carton_token");setAuthenticated(false)}
+  if(error.status===401){token="";user=null;editing=null;sessionStorage.removeItem("carton_token");$("#loginMsg").textContent="Your session expired. Please sign in again.";setAuthenticated(false);return}
   $("#msg").textContent=error.message;
  }
 }

@@ -1,7 +1,6 @@
-# Dashboard API
+# API source
 
-The API source in this folder is deployed as a Netlify Function through `netlify/functions/api.js`.
-
-For Netlify deployment, required passwords, Redis setup, and SharePoint live-workbook configuration, see the repository [README](../README.md).
-
-The API uses Redis as the source of truth and synchronizes dashboard log records to the five uploaded SharePoint workbooks when Microsoft Graph is configured.
+The root-level `api/index.js` exposes the Vercel function and forwards requests
+to `carton-vercel/api/index.js`. Google Sheets is the primary store and
+Firestore is the backup. See the repository [README](../README.md) for Vercel,
+Google Sheets, Firebase, and optional Upstash import setup.
