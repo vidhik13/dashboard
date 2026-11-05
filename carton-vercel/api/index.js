@@ -10,13 +10,6 @@ import {
   writeSheetRecord,
   writeSheetSettings,
 } from "./google-sheets-store.js";
-import {
-  deleteFirebaseBackupRecord,
-  syncFirebaseBackup,
-  writeFirebaseBackupRecord,
-  writeFirebaseBackupSettings,
-} from "./firebase-backup.js";
-
 let redis;
 const KINDS = ["dispatch", "shifts", "returns", "receipts"];
 const FACTORIES = ["OTA", "PHC", "KADUNA", "ABA"];
@@ -144,30 +137,6 @@ function storageResult() {
   };
 }
 
-async function backupResult(action) {
-  try {
-    await action();
-    return { backupSync: "synced", backupMessage: "Firebase backup updated." };
-  } catch (error) {
-    return {
-      backupSync: "failed",
-      backupMessage: error instanceof Error ? error.message : "Firebase backup failed.",
-    };
-  }
-}
-
-async function syncBackupFromSheets() {
-  try {
-    const data = await readDashboardData();
-    return await syncFirebaseBackup(data);
-  } catch (error) {
-    return {
-      status: "failed",
-      message: error instanceof Error ? error.message : "Firebase backup sync failed.",
-    };
-  }
-}
-
 export default async function handler(req, res) {
   if (req.method === "POST" && req.body?.action === "login") {
     if (!process.env.AUTH_SECRET)
@@ -205,16 +174,6 @@ export default async function handler(req, res) {
     });
   }
 
-  if (req.method === "POST" && req.body?.action === "syncFirebaseBackup") {
-    if (!isSeasoning(user)) return res.status(403).send("Only seasoning can sync the Firebase backup");
-    const result = await syncBackupFromSheets();
-    return res.status(200).json({
-      ok: result.status === "synced",
-      backupSync: result.status,
-      backupMessage: result.message,
-    });
-  }
-
   if (req.method === "POST" && req.body?.action === "migrateUpstash") {
     if (!isSeasoning(user)) return res.status(403).send("Only seasoning can import Upstash data");
     const result = await migrateUpstashToSheets();
@@ -225,13 +184,10 @@ export default async function handler(req, res) {
         migrationMessage: result.message,
       });
     }
-    const backup = await syncBackupFromSheets();
     return res.status(200).json({
       ok: true,
       migrationStatus: result.status,
       migrationMessage: result.message,
-      backupSync: backup.status,
-      backupMessage: backup.message,
     });
   }
 
@@ -285,8 +241,7 @@ export default async function handler(req, res) {
     }
 
     await writeSheetRecord(kind, record);
-    const backup = await backupResult(() => writeFirebaseBackupRecord(kind, record));
-    return res.status(200).json({ ok: true, id, ...storageResult(), ...backup });
+    return res.status(200).json({ ok: true, id, ...storageResult() });
   }
 
   if (req.method === "POST" && req.body?.action === "delete") {
@@ -307,13 +262,7 @@ export default async function handler(req, res) {
       await Promise.all(receiptRecords.map(receipt => removeSheetRecord("receipts", receipt.id)));
     }
     await removeSheetRecord(kind, id);
-    const backup = await backupResult(async () => {
-      await Promise.all([
-        ...receiptRecords.map(receipt => deleteFirebaseBackupRecord("receipts", receipt.id)),
-        deleteFirebaseBackupRecord(kind, id),
-      ]);
-    });
-    return res.status(200).json({ ok: true, ...storageResult(), ...backup });
+    return res.status(200).json({ ok: true, ...storageResult() });
   }
 
   if (req.method === "GET") {
@@ -347,12 +296,10 @@ export default async function handler(req, res) {
         return res.status(400).send("Invalid threshold");
       const settings = { thr: threshold };
       await writeSheetSettings(settings);
-      const backup = await backupResult(() => writeFirebaseBackupSettings(settings));
       return res.status(200).json({
         ok: true,
         storageSync: "synced",
         storageMessage: "Google Sheets saved.",
-        ...backup,
       });
     }
 
@@ -401,8 +348,7 @@ export default async function handler(req, res) {
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const savedRecord = { ...record, id };
     await writeSheetRecord(kind, savedRecord);
-    const backup = await backupResult(() => writeFirebaseBackupRecord(kind, savedRecord));
-    return res.status(200).json({ ok: true, id, ...storageResult(), ...backup });
+    return res.status(200).json({ ok: true, id, ...storageResult() });
   }
 
   return res.status(405).send("Method not allowed");

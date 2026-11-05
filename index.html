@@ -71,9 +71,6 @@ const storageMessage=(result,action)=>{
  if(result.storageSync==="synced")messages.push("Saved to Google Sheets.");
  else if(result.storageSync==="failed"||result.storageSync==="not_configured")messages.push(result.storageMessage);
  else messages.push("Google Sheets save status could not be confirmed.");
- if(result.backupSync==="synced")messages.push("Firebase backup updated.");
- else if(result.backupSync==="failed"||result.backupSync==="not_configured")messages.push("Firebase backup warning: "+result.backupMessage);
- else messages.push("Firebase backup status could not be confirmed.");
  return messages.join(" ");
 };
 const now=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);
@@ -154,7 +151,7 @@ function render(){
  let h="";
  if(!kind){
   const factories=user.role==="seasoning"?F:[user.factory];
-  h=(user.role==="seasoning"?`<label style="max-width:240px">Alert when good cartons pile up to (qty)<input id="thr" type="number" value="${thr}"></label><button class="go" id="checkGoogleSheets" type="button">Check Google Sheets</button><button class="go" id="syncFirebaseBackup" type="button">Sync Firebase backup</button><button class="go" id="migrateUpstash" type="button">Import existing Upstash data</button>`:"")+`<h2>${user.role==="seasoning"?"Per noodle factory":user.factory+" factory"}</h2><div class="grid">`+factories.map(f=>{const s=stats(f),al=s.pile>=thr;
+  h=(user.role==="seasoning"?`<label style="max-width:240px">Alert when good cartons pile up to (qty)<input id="thr" type="number" value="${thr}"></label><button class="go" id="checkGoogleSheets" type="button">Check Google Sheets</button><button class="go" id="migrateUpstash" type="button">Import existing data to Google Sheets</button>`:"")+`<h2>${user.role==="seasoning"?"Per noodle factory":user.factory+" factory"}</h2><div class="grid">`+factories.map(f=>{const s=stats(f),al=s.pile>=thr;
    const transit=user.role==="seasoning"
     ?` | Trucks in transit ${s.trucksInTransit} (${s.transit} cartons)`
     :` | In transit ${s.transit}`;
@@ -235,21 +232,12 @@ function render(){
    $("#msg").textContent="Google Sheets check failed: "+error.message;
   }finally{sheetsButton.disabled=false}
  };
- const backupButton=$("#syncFirebaseBackup");if(backupButton)backupButton.onclick=async()=>{
-  backupButton.disabled=true;
-  try{
-   const result=await api("POST",{action:"syncFirebaseBackup"});
-   $("#msg").textContent=result.backupMessage;
-  }catch(error){
-   $("#msg").textContent="Firebase backup failed: "+error.message;
-  }finally{backupButton.disabled=false}
- };
  const migrationButton=$("#migrateUpstash");if(migrationButton)migrationButton.onclick=async()=>{
-  if(!window.confirm("Import existing Upstash records into Google Sheets and Firebase? This one-time import merges rows and cannot be run again after it completes."))return;
+  if(!window.confirm("Import existing Upstash records into Google Sheets? This one-time import merges rows."))return;
   migrationButton.disabled=true;
   try{
    const result=await api("POST",{action:"migrateUpstash"});
-   $("#msg").textContent=result.migrationMessage+(result.backupSync==="failed"?` Firebase backup warning: ${result.backupMessage}`:"");
+   $("#msg").textContent=result.migrationMessage;
   }catch(error){
    $("#msg").textContent="Upstash import failed: "+error.message;
   }finally{migrationButton.disabled=false}
