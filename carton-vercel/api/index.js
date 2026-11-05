@@ -59,6 +59,12 @@ function isSeasoning(user) {
   return user.role === "seasoning";
 }
 
+function canManageKind(user, kind) {
+  return isSeasoning(user)
+    || ["shifts", "returns"].includes(kind)
+    || (user.factory === "OTA" && kind === "dispatch");
+}
+
 function normalizeFactory(factory) {
   return factory === "OA" ? "OTA" : factory;
 }
@@ -197,7 +203,7 @@ export default async function handler(req, res) {
     if (typeof id !== "string" || !id) return res.status(400).send("Invalid record id");
     if (!rec || typeof rec !== "object" || Array.isArray(rec))
       return res.status(400).send("Invalid record");
-    if (!isSeasoning(user) && !["shifts", "returns"].includes(kind))
+    if (!canManageKind(user, kind))
       return res.status(403).send("This account cannot edit that data");
 
     const existing = await readSheetRecord(kind, id);
@@ -253,7 +259,7 @@ export default async function handler(req, res) {
     const { kind, id } = req.body;
     if (!KINDS.includes(kind)) return res.status(400).send("Bad kind");
     if (typeof id !== "string" || !id) return res.status(400).send("Invalid record id");
-    if (!isSeasoning(user) && !["shifts", "returns"].includes(kind))
+    if (!canManageKind(user, kind))
       return res.status(403).send("This account cannot delete that data");
 
     const record = await readSheetRecord(kind, id);
@@ -311,7 +317,7 @@ export default async function handler(req, res) {
     if (!KINDS.includes(kind)) return res.status(400).send("Bad kind");
     if (!rec || typeof rec !== "object" || Array.isArray(rec))
       return res.status(400).send("Invalid record");
-    if (!isSeasoning(user) && !["shifts", "returns"].includes(kind))
+    if (!canManageKind(user, kind))
       return res.status(403).send("This account cannot update that data");
 
     const record = { ...rec };

@@ -54,8 +54,10 @@ change updates the heading row automatically without moving or deleting data.
 
 Users select their plant and enter its password. Factory accounts can access
 only their own shift and return-truck records. Seasoning can manage all
-factories. Sessions expire after eight hours. To change a password, update the
-matching `AUTH_PASSWORD_*` value in Vercel and redeploy.
+factories. OTA also has a simplified Carton dispatch page that records date,
+time, and quantity without truck or waybill details. Sessions expire after
+eight hours. To change a password, update the matching `AUTH_PASSWORD_*` value
+in Vercel and redeploy.
 
 ## Import existing Upstash records
 
