@@ -65,6 +65,21 @@ function canManageKind(user, kind) {
     || (user.factory === "OTA" && kind === "dispatch");
 }
 
+function isOtaSimpleTransport(user, kind) {
+  return !isSeasoning(user) && user.factory === "OTA"
+    && ["dispatch", "returns"].includes(kind);
+}
+
+function clearOtaTransportDetails(record, kind) {
+  record.truck = "";
+  record.wb = "";
+  record.eta = "";
+  if (kind === "returns") {
+    record.driver = "";
+    record.ph = "";
+  }
+}
+
 function normalizeFactory(factory) {
   return factory === "OA" ? "OTA" : factory;
 }
@@ -216,7 +231,8 @@ export default async function handler(req, res) {
         return res.status(400).send("Invalid factory");
       if (!isSeasoning(user)) record.f = user.factory;
     }
-    if (["dispatch", "returns"].includes(kind)) {
+    if (isOtaSimpleTransport(user, kind)) clearOtaTransportDetails(record, kind);
+    if (["dispatch", "returns"].includes(kind) && !isOtaSimpleTransport(user, kind)) {
       if (typeof record.truck !== "string" || !/^[A-Za-z0-9]*$/.test(record.truck))
         return res.status(400).send("Truck number must contain only letters and numbers");
       record.truck = record.truck.toUpperCase();
@@ -326,7 +342,8 @@ export default async function handler(req, res) {
         return res.status(400).send("Invalid factory");
       if (!isSeasoning(user)) record.f = user.factory;
     }
-    if (["dispatch", "returns"].includes(kind)) {
+    if (isOtaSimpleTransport(user, kind)) clearOtaTransportDetails(record, kind);
+    if (["dispatch", "returns"].includes(kind) && !isOtaSimpleTransport(user, kind)) {
       if (typeof record.truck !== "string" || !/^[A-Za-z0-9]*$/.test(record.truck))
         return res.status(400).send("Truck number must contain only letters and numbers");
       record.truck = record.truck.toUpperCase();

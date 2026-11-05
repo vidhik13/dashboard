@@ -113,9 +113,17 @@ function setAuthenticated(ready){
 function stats(f){
  const s=D.shifts.filter(x=>x.f===f),r=D.returns.filter(x=>x.f===f),d=D.dispatch.filter(x=>x.f===f);
  const good=sum(s,"good");
+ const month=now().slice(0,7),year=month.slice(0,4);
+ const sentThisMonth=sum(d.filter(x=>String(x.dt||"").slice(0,7)===month),"qty");
+ const returnedThisMonth=sum(r.filter(x=>String(x.dt||"").slice(0,7)===month),"qty");
+ const sentYtd=sum(d.filter(x=>String(x.dt||"").slice(0,4)===year),"qty");
+ const returnedYtd=sum(r.filter(x=>String(x.dt||"").slice(0,4)===year),"qty");
  return{sent:sum(d,"qty"),used:sum(s,"used"),bad:sum(s,"bad"),good,returned:sum(r,"qty"),pile:good-sum(r,"qty"),
+  returnMonth:sentThisMonth?returnedThisMonth/sentThisMonth*100:null,
+  returnYtd:sentYtd?returnedYtd/sentYtd*100:null,
   trucksInTransit:r.filter(x=>!D.receipts.some(c=>c.rid===x.id)).length,
   transit:r.filter(x=>!D.receipts.some(c=>c.rid===x.id)).reduce((a,x)=>a+(+x.qty||0),0)}}
+const percent=value=>value===null?"—":`${value.toFixed(1)}%`;
 function truckEtaSummary(factory){
  const dispatches=D.dispatch.filter(x=>x.f===factory&&x.eta);
  const returns=D.returns.filter(x=>x.f===factory&&!D.receipts.some(c=>c.rid===x.id));
@@ -139,7 +147,10 @@ function formHTML(kind){
   return field("f_dt","Date & time","datetime-local",`value="${now()}"`)+factoryField()+truckNumberField()+waybillField()+field("f_qty","Cartons sent","number")+field("f_eta","ETA","datetime-local")+`<button class="go">Log dispatch</button>`;
  }
  if(kind==="shifts")return field("f_date","Date","date",`value="${now().slice(0,10)}"`)+factoryField()+wholeNumberField("f_line","Line",true)+`<label>Shift<select id="f_sh"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>`+wholeNumberField("f_used","Total cartons consumed",true)+wholeNumberField("f_good","Good cartons",true)+wholeNumberField("f_bad","Bad cartons",true)+`<div class="mu" style="grid-column:1/-1">Enter Total, then either Good or Bad. The other is calculated automatically: Bad = Total - Good, or Good = Total - Bad.</div><button class="go">Save shift</button>`;
- if(kind==="returns")return factoryField()+truckNumberField()+field("f_driver","Driver name")+field("f_ph","Driver phone")+waybillField()+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
+ if(kind==="returns"){
+  if(user.role!=="seasoning"&&user.factory==="OTA")return field("f_dt","Date & time","datetime-local",`value="${now()}" required`)+field("f_qty","Cartons returned","number","min=\"0\" step=\"1\" required")+`<button class="go">Log return</button>`;
+  return factoryField()+truckNumberField()+field("f_driver","Driver name")+field("f_ph","Driver phone")+waybillField()+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
+ }
  if(kind==="receipts"){const current=editing?.kind==="receipts"?D.receipts.find(x=>x.id===editing.id):null;const o=D.returns.filter(x=>!D.receipts.some(c=>c.rid===x.id)||x.id===current?.rid).map(x=>`<option value="${escapeHTML(x.id)}">${escapeHTML(x.f)} | ${escapeHTML(x.truck)} | ${escapeHTML(x.wb)} | ${escapeHTML(x.qty)}</option>`).join("");
   return `<label>Truck arrived<select id="f_rid">${o}</select></label>`+calculatedNumberField("f_acc","Accepted cartons (calculated)")+wholeNumberField("f_rej","Rejected")+field("f_dt","Received","datetime-local",`value="${now()}"`)+`<button class="go">Save sorting</button>`}
 }
@@ -149,7 +160,10 @@ function rec(kind){
   return{f:val("f_f"),truck:val("f_truck").toUpperCase(),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt"),eta:val("f_eta")};
  }
  if(kind==="shifts")return{f:val("f_f"),date:val("f_date"),line:+val("f_line"),sh:val("f_sh"),used:+val("f_used"),good:+val("f_good"),bad:+val("f_bad")};
- if(kind==="returns")return{f:val("f_f"),truck:val("f_truck").toUpperCase(),driver:val("f_driver"),ph:val("f_ph"),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt"),eta:val("f_eta")};
+ if(kind==="returns"){
+  if(user.role!=="seasoning"&&user.factory==="OTA")return{f:"OTA",truck:"",driver:"",ph:"",wb:"",qty:+val("f_qty"),dt:val("f_dt"),eta:""};
+  return{f:val("f_f"),truck:val("f_truck").toUpperCase(),driver:val("f_driver"),ph:val("f_ph"),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt"),eta:val("f_eta")};
+ }
  return{rid:val("f_rid"),acc:+val("f_acc"),rej:+val("f_rej"),dt:val("f_dt")};
 }
 const COLS={dispatch:[["dt","Date/time"],["eta","ETA"],["f","Factory"],["truck","Truck"],["wb","Waybill"],["qty","Qty"]],
@@ -161,9 +175,9 @@ function rows(kind,readOnly=false){
  if(kind==="returns")a=a.map(x=>({...x,status:D.receipts.some(c=>c.rid===x.id)?"Received":"In transit"}));
  if(kind==="receipts")a=a.map(x=>{const r=D.returns.find(y=>y.id===x.rid)||{};return{...x,f:r.f,truck:r.truck,wb:r.wb,qty:r.qty}});
  a.sort((x,y)=>String(y.dt||y.date||"").localeCompare(String(x.dt||x.date||"")));
- const isOtaDispatch=kind==="dispatch"&&user.role!=="seasoning"&&user.factory==="OTA";
- const c=isOtaDispatch?[["dt","Date & time"],["qty","Qty"]]:COLS[kind];
- const canManage=!readOnly&&(user.role==="seasoning"||["shifts","returns"].includes(kind)||isOtaDispatch);
+ const isOtaSimpleTransport=["dispatch","returns"].includes(kind)&&user.role!=="seasoning"&&user.factory==="OTA";
+ const c=isOtaSimpleTransport?[["dt","Date & time"],["qty",kind==="returns"?"Cartons returned":"Cartons sent"]]:COLS[kind];
+ const canManage=!readOnly&&(user.role==="seasoning"||["shifts","returns"].includes(kind)||isOtaSimpleTransport);
  const actionHeader=canManage?"<th>Actions</th>":"";
  const rowHTML=a.map(r=>{
   const canManageRecord=canManage&&(user.role==="seasoning"||r.f===user.factory);
@@ -176,10 +190,10 @@ function render(){
  if(!user)return;
  const tabs=user.role==="seasoning"
   ?["Dashboard","Seasoning dispatch","Return trucks tracking","Sorting at seasoning"]
-  :["Dashboard",user.factory==="OTA"?"Carton dispatch":"Seasoning dispatch","Noodle shift log","Return truck","Sorting at seasoning"];
+  :["Dashboard",user.factory==="OTA"?"Carton dispatch":"Seasoning dispatch","Noodle shift log",user.factory==="OTA"?"Return carton tracking":"Return truck","Sorting at seasoning"];
  if(!tabs.includes(tab))tab="Dashboard";
  $("#nav").innerHTML=tabs.map(t=>`<button class="${t===tab?"on":""}" data-t="${t}">${t}</button>`).join("")+`<button id="logout">Log out</button>`;
- const kind={"Seasoning dispatch":"dispatch","Carton dispatch":"dispatch","Noodle shift log":"shifts","Return truck":"returns","Return trucks tracking":"returns","Sorting at seasoning":"receipts"}[tab];
+ const kind={"Seasoning dispatch":"dispatch","Carton dispatch":"dispatch","Noodle shift log":"shifts","Return truck":"returns","Return carton tracking":"returns","Return trucks tracking":"returns","Sorting at seasoning":"receipts"}[tab];
  let h="";
  if(!kind){
   const factories=user.role==="seasoning"?F:[user.factory];
@@ -188,14 +202,14 @@ function render(){
    const transit=user.role==="seasoning"
     ?`${s.trucksInTransit} trucks · ${s.transit} cartons`
     :`${s.transit} cartons`;
-   if(!isSeasoning)return `<div class="card ${al?"alert":""}"><b>${f}</b> ${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}<div class="big">${s.pile}</div><div class="mu">good cartons waiting to return</div><div class="mu">Sent ${s.sent} | Used ${s.used} | Bad ${s.bad}<br>Returned ${s.returned} | In transit ${transit}</div></div>`;
-   return `<article class="card factory-card ${al?"alert":""}"><div class="factory-card-head"><strong>${f}</strong>${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}</div><div class="factory-total"><span class="mu">Good cartons waiting</span><strong>${s.pile}</strong></div><div class="factory-metrics"><div class="factory-metric"><span>Sent</span><strong>${s.sent}</strong></div><div class="factory-metric"><span>Used</span><strong>${s.used}</strong></div><div class="factory-metric"><span>Bad</span><strong>${s.bad}</strong></div><div class="factory-metric"><span>Returned</span><strong>${s.returned}</strong></div><div class="factory-metric"><span>In transit</span><strong>${s.trucksInTransit} trucks</strong><small>${s.transit} cartons</small></div></div>${truckEtaSummary(f)}</article>`;
+   if(!isSeasoning)return `<div class="card ${al?"alert":""}"><b>${f}</b> ${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}<div class="big">${s.pile}</div><div class="mu">good cartons waiting to return</div><div class="mu">Sent ${s.sent} | Used ${s.used} | Bad ${s.bad}<br>Returned ${s.returned} | In transit ${transit}<br>Returns: this month ${percent(s.returnMonth)} | YTD ${percent(s.returnYtd)}</div></div>`;
+   return `<article class="card factory-card ${al?"alert":""}"><div class="factory-card-head"><strong>${f}</strong>${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}</div><div class="factory-total"><span class="mu">Good cartons waiting</span><strong>${s.pile}</strong></div><div class="factory-metrics"><div class="factory-metric"><span>Sent</span><strong>${s.sent}</strong></div><div class="factory-metric"><span>Used</span><strong>${s.used}</strong></div><div class="factory-metric"><span>Bad</span><strong>${s.bad}</strong></div><div class="factory-metric"><span>Returned</span><strong>${s.returned}</strong></div><div class="factory-metric"><span>In transit</span><strong>${s.trucksInTransit} trucks</strong><small>${s.transit} cartons</small></div><div class="factory-metric"><span>Returns this month</span><strong>${percent(s.returnMonth)}</strong></div><div class="factory-metric"><span>Returns YTD</span><strong>${percent(s.returnYtd)}</strong></div></div>${truckEtaSummary(f)}</article>`;
   }).join("");
   h=(isSeasoning?`<section class="dashboard-tools"><label>Alert threshold (good cartons)<input id="thr" type="number" min="0" value="${thr}"></label><button class="go" id="checkGoogleSheets" type="button">Check Google Sheets</button><button class="go" id="migrateUpstash" type="button">Import old data</button></section>`:"")+`<div class="section-heading"><h2>${isSeasoning?"Factory overview":user.factory+" factory"}</h2>${isSeasoning?'<span class="mu">All 4 plants</span>':""}</div><div class="grid ${isSeasoning?"factory-grid":""}">${factoryCards}</div>`+(!isSeasoning?`<h2>Trucks on the way back</h2>${rows("returns")}`:"");
  }else{
   const isSeasoningReturnTracking=user.role==="seasoning"&&tab==="Return trucks tracking";
-  const isOtaDispatch=kind==="dispatch"&&user.role!=="seasoning"&&user.factory==="OTA";
-  const canUpdate=!isSeasoningReturnTracking&&(user.role==="seasoning"||["shifts","returns"].includes(kind)||isOtaDispatch);
+  const isOtaSimpleTransport=["dispatch","returns"].includes(kind)&&user.role!=="seasoning"&&user.factory==="OTA";
+  const canUpdate=!isSeasoningReturnTracking&&(user.role==="seasoning"||["shifts","returns"].includes(kind)||isOtaSimpleTransport);
   h=(canUpdate?`<form id="frm">${editing?.kind===kind?`<div style="grid-column:1/-1">Editing log <button type="button" class="edit" id="cancelEdit">Cancel</button></div>`:""}${formHTML(kind)}</form>`:"")+rows(kind,isSeasoningReturnTracking);
  }
  $("#view").innerHTML=h;
@@ -218,7 +232,7 @@ function render(){
  };
  if(editing&&editing.kind===kind){
   const record=D[kind].find(item=>item.id===editing.id);
-  const fields={dispatch:user.role!=="seasoning"&&user.factory==="OTA"?{dt:"f_dt",qty:"f_qty"}:{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},shifts:{f:"f_f",date:"f_date",line:"f_line",sh:"f_sh",used:"f_used",good:"f_good",bad:"f_bad"},returns:{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
+  const fields={dispatch:user.role!=="seasoning"&&user.factory==="OTA"?{dt:"f_dt",qty:"f_qty"}:{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},shifts:{f:"f_f",date:"f_date",line:"f_line",sh:"f_sh",used:"f_used",good:"f_good",bad:"f_bad"},returns:user.role!=="seasoning"&&user.factory==="OTA"?{dt:"f_dt",qty:"f_qty"}:{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
   if(record)for(const [key,id] of Object.entries(fields)){const input=$("#"+id);if(input)input.value=key==="truck"?String(record[key]??"").toUpperCase().replace(/[^A-Z0-9]/g,""):record[key]??""}
   const submit=$("#frm .go");if(submit)submit.textContent="Save changes";
  }
@@ -302,7 +316,7 @@ function render(){
   if(!record){$("#msg").textContent="Action failed: record not found. Refresh and try again.";return}
   if(action==="edit"){
    editing={kind,id};
-   tab=({dispatch:user.role!=="seasoning"&&user.factory==="OTA"?"Carton dispatch":"Seasoning dispatch",shifts:"Noodle shift log",returns:"Return truck",receipts:"Sorting at seasoning"})[kind];
+   tab=({dispatch:user.role!=="seasoning"&&user.factory==="OTA"?"Carton dispatch":"Seasoning dispatch",shifts:"Noodle shift log",returns:user.role!=="seasoning"&&user.factory==="OTA"?"Return carton tracking":"Return truck",receipts:"Sorting at seasoning"})[kind];
    render();
    return;
   }
