@@ -135,19 +135,19 @@ const calculatedNumberField=(id,label)=>field(id,label,"text",'inputmode="numeri
 const val=id=>$("#"+id).value;
 function formHTML(kind){
  if(kind==="dispatch")return field("f_dt","Date & time","datetime-local",`value="${now()}"`)+factoryField()+truckNumberField()+waybillField()+field("f_qty","Cartons sent","number")+field("f_eta","ETA","datetime-local")+`<button class="go">Log dispatch</button>`;
- if(kind==="shifts")return field("f_date","Date","date",`value="${now().slice(0,10)}"`)+factoryField()+`<label>Shift<select id="f_sh"><option>A</option><option>B</option><option>C</option></select></label>`+wholeNumberField("f_used","Total cartons consumed",true)+wholeNumberField("f_good","Good cartons",true)+wholeNumberField("f_bad","Bad cartons",true)+`<div class="mu" style="grid-column:1/-1">Enter Good or Bad cartons first; the other is calculated from the total.</div><button class="go">Save shift</button>`;
+ if(kind==="shifts")return field("f_date","Date","date",`value="${now().slice(0,10)}"`)+factoryField()+wholeNumberField("f_line","Line",true)+`<label>Shift<select id="f_sh"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>`+wholeNumberField("f_used","Total cartons consumed",true)+wholeNumberField("f_good","Good cartons",true)+wholeNumberField("f_bad","Bad cartons",true)+`<div class="mu" style="grid-column:1/-1">Enter Good or Bad cartons first; the other is calculated from the total.</div><button class="go">Save shift</button>`;
  if(kind==="returns")return factoryField()+truckNumberField()+field("f_driver","Driver name")+field("f_ph","Driver phone")+waybillField()+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
  if(kind==="receipts"){const current=editing?.kind==="receipts"?D.receipts.find(x=>x.id===editing.id):null;const o=D.returns.filter(x=>!D.receipts.some(c=>c.rid===x.id)||x.id===current?.rid).map(x=>`<option value="${escapeHTML(x.id)}">${escapeHTML(x.f)} | ${escapeHTML(x.truck)} | ${escapeHTML(x.wb)} | ${escapeHTML(x.qty)}</option>`).join("");
   return `<label>Truck arrived<select id="f_rid">${o}</select></label>`+calculatedNumberField("f_acc","Accepted cartons (calculated)")+wholeNumberField("f_rej","Rejected")+field("f_dt","Received","datetime-local",`value="${now()}"`)+`<button class="go">Save sorting</button>`}
 }
 function rec(kind){
  if(kind==="dispatch")return{f:val("f_f"),truck:val("f_truck").toUpperCase(),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt"),eta:val("f_eta")};
- if(kind==="shifts")return{f:val("f_f"),date:val("f_date"),sh:val("f_sh"),used:+val("f_used"),good:+val("f_good"),bad:+val("f_bad")};
+ if(kind==="shifts")return{f:val("f_f"),date:val("f_date"),line:+val("f_line"),sh:val("f_sh"),used:+val("f_used"),good:+val("f_good"),bad:+val("f_bad")};
  if(kind==="returns")return{f:val("f_f"),truck:val("f_truck").toUpperCase(),driver:val("f_driver"),ph:val("f_ph"),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt"),eta:val("f_eta")};
  return{rid:val("f_rid"),acc:+val("f_acc"),rej:+val("f_rej"),dt:val("f_dt")};
 }
 const COLS={dispatch:[["dt","Date/time"],["eta","ETA"],["f","Factory"],["truck","Truck"],["wb","Waybill"],["qty","Qty"]],
- shifts:[["date","Date"],["sh","Shift"],["f","Factory"],["used","Used"],["good","Good"],["bad","Bad"]],
+ shifts:[["date","Date"],["line","Line"],["sh","Shift"],["f","Factory"],["used","Used"],["good","Good"],["bad","Bad"]],
  returns:[["dt","Dispatched"],["eta","ETA"],["f","Factory"],["truck","Truck"],["driver","Driver"],["ph","Phone"],["wb","Waybill"],["qty","Qty"],["status","Status"]],
  receipts:[["dt","Received"],["f","Factory"],["truck","Truck"],["wb","Waybill"],["qty","Sent"],["acc","Accepted"],["rej","Rejected"]]};
 function rows(kind,readOnly=false){
@@ -191,7 +191,7 @@ function render(){
   h=(canUpdate?`<form id="frm">${editing?.kind===kind?`<div style="grid-column:1/-1">Editing log <button type="button" class="edit" id="cancelEdit">Cancel</button></div>`:""}${formHTML(kind)}</form>`:"")+rows(kind,isSeasoningReturnTracking);
  }
  $("#view").innerHTML=h;
- for(const input of $("#view").querySelectorAll("#f_good,#f_bad,#f_rej,#f_wb,#f_used")){
+ for(const input of $("#view").querySelectorAll("#f_good,#f_bad,#f_rej,#f_wb,#f_used,#f_line")){
   input.onbeforeinput=event=>{
    if(event.inputType==="insertText"&&event.data&&/\D/.test(event.data))event.preventDefault();
   };
@@ -210,7 +210,7 @@ function render(){
  };
  if(editing&&editing.kind===kind){
   const record=D[kind].find(item=>item.id===editing.id);
-  const fields={dispatch:{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},shifts:{f:"f_f",date:"f_date",sh:"f_sh",used:"f_used",good:"f_good",bad:"f_bad"},returns:{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
+  const fields={dispatch:{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},shifts:{f:"f_f",date:"f_date",line:"f_line",sh:"f_sh",used:"f_used",good:"f_good",bad:"f_bad"},returns:{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
   if(record)for(const [key,id] of Object.entries(fields)){const input=$("#"+id);if(input)input.value=key==="truck"?String(record[key]??"").toUpperCase().replace(/[^A-Z0-9]/g,""):record[key]??""}
   const submit=$("#frm .go");if(submit)submit.textContent="Save changes";
  }

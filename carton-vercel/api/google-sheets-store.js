@@ -18,6 +18,7 @@ const TABLES = {
     ["used", "Total Cartons Used"],
     ["good", "Good Cartons"],
     ["bad", "Bad Cartons"],
+    ["line", "Line"],
   ],
   returns: [
     ["id", "Record ID"],
@@ -39,7 +40,7 @@ const TABLES = {
   ],
 };
 const SETTINGS_TAB = "Settings";
-const NUMBER_FIELDS = new Set(["qty", "used", "good", "bad", "acc", "rej", "thr"]);
+const NUMBER_FIELDS = new Set(["qty", "used", "good", "bad", "acc", "rej", "thr", "line"]);
 
 const fieldsFor = kind => TABLES[kind].map(([field]) => field);
 const headersFor = kind => TABLES[kind].map(([, header]) => header);
@@ -124,6 +125,23 @@ async function ensureTabs() {
         spreadsheetId,
         requestBody: { valueInputOption: "RAW", data: headers },
       });
+
+      const shiftRows = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: "Shifts!D2:D",
+      });
+      const values = shiftRows.data.values || [];
+      const normalizedShifts = values.map(([shift = ""]) => [
+        ({ A: "1", B: "2", C: "3" })[shift] || shift,
+      ]);
+      if (values.some(([shift = ""], index) => normalizedShifts[index][0] !== shift)) {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `Shifts!D2:D${values.length + 1}`,
+          valueInputOption: "RAW",
+          requestBody: { values: normalizedShifts },
+        });
+      }
     })();
   }
 
@@ -155,7 +173,11 @@ async function writeRows(tab, range, values) {
 }
 
 function toRow(kind, record) {
-  return fieldsFor(kind).map(field => record[field] ?? "");
+  return fieldsFor(kind).map(field => {
+    if (kind === "shifts" && field === "sh")
+      return ({ A: "1", B: "2", C: "3" })[record.sh] || record.sh || "";
+    return record[field] ?? "";
+  });
 }
 
 function fromRow(kind, row) {

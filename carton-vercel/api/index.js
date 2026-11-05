@@ -218,6 +218,11 @@ export default async function handler(req, res) {
         return res.status(400).send("Waybill number must contain digits only");
     }
     if (kind === "shifts") {
+      if (!Number.isSafeInteger(record.line) || record.line < 1)
+        return res.status(400).send("Line must be a whole number greater than zero");
+      if (!["1", "2", "3"].includes(String(record.sh)))
+        return res.status(400).send("Shift must be 1, 2, or 3");
+      record.sh = String(record.sh);
       if (!hasNonNegativeIntegers(record, ["used", "good", "bad"]))
         return res.status(400).send("Total, good, and bad cartons must be whole numbers greater than or equal to zero");
       if (record.good + record.bad !== record.used)
@@ -323,6 +328,11 @@ export default async function handler(req, res) {
         return res.status(400).send("Waybill number must contain digits only");
     }
     if (kind === "shifts") {
+      if (!Number.isSafeInteger(record.line) || record.line < 1)
+        return res.status(400).send("Line must be a whole number greater than zero");
+      if (!["1", "2", "3"].includes(String(record.sh)))
+        return res.status(400).send("Shift must be 1, 2, or 3");
+      record.sh = String(record.sh);
       if (!hasNonNegativeIntegers(record, ["used", "good", "bad"]))
         return res.status(400).send("Total, good, and bad cartons must be whole numbers greater than or equal to zero");
       if (record.good + record.bad !== record.used)

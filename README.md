@@ -20,7 +20,10 @@ and `Settings` tabs with the required headers.
 The column headings are descriptive and the app keeps the existing column
 order: Dispatch uses Record ID, Factory, Truck Number, Waybill Number, Cartons
 Sent, Dispatch Date/Time, and Estimated Arrival (ETA); Shifts uses Record ID,
-Factory, Shift Date, Shift, Total Cartons Used, Good Cartons, and Bad Cartons;
+Factory, Shift Date, Shift, Total Cartons Used, Good Cartons, Bad Cartons, and
+Line. The app accepts shift numbers 1, 2, and 3, and converts existing A/B/C
+shift values to 1/2/3. Line is appended to the existing Shifts columns so
+current records remain aligned; older entries have a blank Line until updated.
 Returns uses Record ID, Factory, Truck Number, Driver Name, Driver Phone,
 Waybill Number, Cartons on Truck, Dispatch Date/Time, and Estimated Arrival
 (ETA); Receipts uses Record ID, Return Record ID, Received Date/Time, Accepted
