@@ -1,14 +1,48 @@
 import { google } from "googleapis";
 
 const TABLES = {
-  dispatch: ["id", "f", "truck", "wb", "qty", "dt", "eta"],
-  shifts: ["id", "f", "date", "sh", "used", "good", "bad"],
-  returns: ["id", "f", "truck", "driver", "ph", "wb", "qty", "dt", "eta"],
-  receipts: ["id", "rid", "dt", "acc", "rej"],
+  dispatch: [
+    ["id", "Record ID"],
+    ["f", "Factory"],
+    ["truck", "Truck Number"],
+    ["wb", "Waybill Number"],
+    ["qty", "Cartons Sent"],
+    ["dt", "Dispatch Date/Time"],
+    ["eta", "Estimated Arrival (ETA)"],
+  ],
+  shifts: [
+    ["id", "Record ID"],
+    ["f", "Factory"],
+    ["date", "Shift Date"],
+    ["sh", "Shift"],
+    ["used", "Total Cartons Used"],
+    ["good", "Good Cartons"],
+    ["bad", "Bad Cartons"],
+  ],
+  returns: [
+    ["id", "Record ID"],
+    ["f", "Factory"],
+    ["truck", "Truck Number"],
+    ["driver", "Driver Name"],
+    ["ph", "Driver Phone"],
+    ["wb", "Waybill Number"],
+    ["qty", "Cartons on Truck"],
+    ["dt", "Dispatch Date/Time"],
+    ["eta", "Estimated Arrival (ETA)"],
+  ],
+  receipts: [
+    ["id", "Record ID"],
+    ["rid", "Return Record ID"],
+    ["dt", "Received Date/Time"],
+    ["acc", "Accepted Cartons"],
+    ["rej", "Rejected Cartons"],
+  ],
 };
 const SETTINGS_TAB = "Settings";
 const NUMBER_FIELDS = new Set(["qty", "used", "good", "bad", "acc", "rej", "thr"]);
 
+const fieldsFor = kind => TABLES[kind].map(([field]) => field);
+const headersFor = kind => TABLES[kind].map(([, header]) => header);
 let sheetsClient;
 let initialization;
 
@@ -80,11 +114,11 @@ async function ensureTabs() {
       }
 
       const headers = [
-        ...Object.entries(TABLES).map(([title, columns]) => ({
-          range: `${title}!A1:${columnName(columns.length)}1`,
-          values: [columns],
+        ...Object.keys(TABLES).map(kind => ({
+          range: `${kind}!A1:${columnName(TABLES[kind].length)}1`,
+          values: [headersFor(kind)],
         })),
-        { range: `${SETTINGS_TAB}!A1:B1`, values: [["key", "value"]] },
+        { range: `${SETTINGS_TAB}!A1:B1`, values: [["Setting", "Value"]] },
       ];
       await sheets.spreadsheets.values.batchUpdate({
         spreadsheetId,
@@ -121,11 +155,11 @@ async function writeRows(tab, range, values) {
 }
 
 function toRow(kind, record) {
-  return TABLES[kind].map(field => record[field] ?? "");
+  return fieldsFor(kind).map(field => record[field] ?? "");
 }
 
 function fromRow(kind, row) {
-  return Object.fromEntries(TABLES[kind].map((field, index) => {
+  return Object.fromEntries(fieldsFor(kind).map((field, index) => {
     const value = row[index] ?? "";
     return [field, NUMBER_FIELDS.has(field) && value !== "" ? Number(value) : value];
   }));

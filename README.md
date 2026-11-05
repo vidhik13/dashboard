@@ -17,6 +17,16 @@ saved to Google Sheets.
 The app automatically creates the `Dispatch`, `Shifts`, `Returns`, `Receipts`,
 and `Settings` tabs with the required headers.
 
+The column headings are descriptive and the app keeps the existing column
+order: Dispatch uses Record ID, Factory, Truck Number, Waybill Number, Cartons
+Sent, Dispatch Date/Time, and Estimated Arrival (ETA); Shifts uses Record ID,
+Factory, Shift Date, Shift, Total Cartons Used, Good Cartons, and Bad Cartons;
+Returns uses Record ID, Factory, Truck Number, Driver Name, Driver Phone,
+Waybill Number, Cartons on Truck, Dispatch Date/Time, and Estimated Arrival
+(ETA); Receipts uses Record ID, Return Record ID, Received Date/Time, Accepted
+Cartons, and Rejected Cartons. Settings uses Setting and Value. Deploying this
+change updates the heading row automatically without moving or deleting data.
+
 ## Deploy on Vercel
 
 1. Import this repository into Vercel. Use the repository root as the project
