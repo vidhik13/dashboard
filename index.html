@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><title>Carton Return Tracker</title>
+<html lang="en"><head><meta charset="utf-8"><link rel="icon" type="image/png" href="/dufil-logo.png"><title>Carton Return Tracker</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>
 :root{--bg:#f6f5f1;--card:#fff;--tx:#1d1d1b;--mu:#6b6a65;--bd:#e0ded6;--ac:#c2410c;--ok:#15803d;--bad:#b91c1c;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -316,7 +316,7 @@ function render(){
 async function api(m,body,authenticate=true){
  const headers={"content-type":"application/json"};
  if(authenticate&&token)headers.authorization=`Bearer ${token}`;
- const r=await fetch("/api",{method:m,headers,body:body?JSON.stringify(body):undefined});
+ const r=await fetch("/api/handler",{method:m,headers,body:body?JSON.stringify(body):undefined});
  if(!r.ok){const error=new Error(await r.text());error.status=r.status;throw error}
  return r.json()
 }

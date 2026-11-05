@@ -61,8 +61,8 @@ service account for the three `FIREBASE_*` Admin variables.
 
 1. Import this repository into Vercel. Use the repository root as the project
    root and the **Other** framework preset. The checked-in `vercel.json` builds
-   the static site into `public`; Vercel deploys `api/index.js` as the `/api`
-   serverless function. No separate server is needed.
+   the static site into `public`; Vercel deploys `api/handler.js` as the
+   `/api/handler` serverless function. No separate server is needed.
 2. Add these environment variables to the Vercel project for Production. Add
    them to Preview only if you intend preview deployments to use the same
    production spreadsheet and Firebase backup:
