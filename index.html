@@ -118,9 +118,17 @@ function stats(f){
  const returnedThisMonth=sum(r.filter(x=>String(x.dt||"").slice(0,7)===month),"qty");
  const sentYtd=sum(d.filter(x=>String(x.dt||"").slice(0,4)===year),"qty");
  const returnedYtd=sum(r.filter(x=>String(x.dt||"").slice(0,4)===year),"qty");
+ const acceptedForPeriod=period=>sum(D.receipts.filter(receipt=>
+  String(receipt.dt||"").slice(0,period.length)===period
+  &&r.some(returnRecord=>returnRecord.id===receipt.rid)
+ ),"acc");
+ const acceptedThisMonth=acceptedForPeriod(month);
+ const acceptedYtd=acceptedForPeriod(year);
  return{sent:sum(d,"qty"),used:sum(s,"used"),bad:sum(s,"bad"),good,returned:sum(r,"qty"),pile:good-sum(r,"qty"),
   returnMonth:sentThisMonth?returnedThisMonth/sentThisMonth*100:null,
   returnYtd:sentYtd?returnedYtd/sentYtd*100:null,
+  acceptanceMonth:sentThisMonth?acceptedThisMonth/sentThisMonth*100:null,
+  acceptanceYtd:sentYtd?acceptedYtd/sentYtd*100:null,
   trucksInTransit:r.filter(x=>!D.receipts.some(c=>c.rid===x.id)).length,
   transit:r.filter(x=>!D.receipts.some(c=>c.rid===x.id)).reduce((a,x)=>a+(+x.qty||0),0)}}
 const percent=value=>value===null?"—":`${value.toFixed(1)}%`;
@@ -202,8 +210,8 @@ function render(){
    const transit=user.role==="seasoning"
     ?`${s.trucksInTransit} trucks · ${s.transit} cartons`
     :`${s.transit} cartons`;
-   if(!isSeasoning)return `<div class="card ${al?"alert":""}"><b>${f}</b> ${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}<div class="big">${s.pile}</div><div class="mu">good cartons waiting to return</div><div class="mu">Sent ${s.sent} | Used ${s.used} | Bad ${s.bad}<br>Returned ${s.returned} | In transit ${transit}<br>Returns: this month ${percent(s.returnMonth)} | YTD ${percent(s.returnYtd)}</div></div>`;
-   return `<article class="card factory-card ${al?"alert":""}"><div class="factory-card-head"><strong>${f}</strong>${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}</div><div class="factory-total"><span class="mu">Good cartons waiting</span><strong>${s.pile}</strong></div><div class="factory-metrics"><div class="factory-metric"><span>Sent</span><strong>${s.sent}</strong></div><div class="factory-metric"><span>Used</span><strong>${s.used}</strong></div><div class="factory-metric"><span>Bad</span><strong>${s.bad}</strong></div><div class="factory-metric"><span>Returned</span><strong>${s.returned}</strong></div><div class="factory-metric"><span>In transit</span><strong>${s.trucksInTransit} trucks</strong><small>${s.transit} cartons</small></div><div class="factory-metric"><span>Returns this month</span><strong>${percent(s.returnMonth)}</strong></div><div class="factory-metric"><span>Returns YTD</span><strong>${percent(s.returnYtd)}</strong></div></div>${truckEtaSummary(f)}</article>`;
+   if(!isSeasoning)return `<div class="card ${al?"alert":""}"><b>${f}</b> ${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}<div class="big">${s.pile}</div><div class="mu">good cartons waiting to return</div><div class="mu">Sent ${s.sent} | Used ${s.used} | Bad ${s.bad}<br>Returned ${s.returned} | In transit ${transit}<br>Returns: this month ${percent(s.returnMonth)} | YTD ${percent(s.returnYtd)}<br>Acceptance: MTD ${percent(s.acceptanceMonth)} | YTD ${percent(s.acceptanceYtd)}</div></div>`;
+   return `<article class="card factory-card ${al?"alert":""}"><div class="factory-card-head"><strong>${f}</strong>${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}</div><div class="factory-total"><span class="mu">Good cartons waiting</span><strong>${s.pile}</strong></div><div class="factory-metrics"><div class="factory-metric"><span>Sent</span><strong>${s.sent}</strong></div><div class="factory-metric"><span>Used</span><strong>${s.used}</strong></div><div class="factory-metric"><span>Bad</span><strong>${s.bad}</strong></div><div class="factory-metric"><span>Returned</span><strong>${s.returned}</strong></div><div class="factory-metric"><span>In transit</span><strong>${s.trucksInTransit} trucks</strong><small>${s.transit} cartons</small></div><div class="factory-metric"><span>Returns this month</span><strong>${percent(s.returnMonth)}</strong></div><div class="factory-metric"><span>Returns YTD</span><strong>${percent(s.returnYtd)}</strong></div><div class="factory-metric"><span>Acceptance MTD</span><strong>${percent(s.acceptanceMonth)}</strong></div><div class="factory-metric"><span>Acceptance YTD</span><strong>${percent(s.acceptanceYtd)}</strong></div></div>${truckEtaSummary(f)}</article>`;
   }).join("");
   h=(isSeasoning?`<section class="dashboard-tools"><label>Alert threshold (good cartons)<input id="thr" type="number" min="0" value="${thr}"></label><button class="go" id="checkGoogleSheets" type="button">Check Google Sheets</button><button class="go" id="migrateUpstash" type="button">Import old data</button></section>`:"")+`<div class="section-heading"><h2>${isSeasoning?"Factory overview":user.factory+" factory"}</h2>${isSeasoning?'<span class="mu">All 4 plants</span>':""}</div><div class="grid ${isSeasoning?"factory-grid":""}">${factoryCards}</div>`+(!isSeasoning?`<h2>Trucks on the way back</h2>${rows("returns")}`:"");
  }else{
