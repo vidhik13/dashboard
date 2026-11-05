@@ -26,10 +26,13 @@ nav button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
 .factory-card.alert{border-color:var(--bad)}
 .factory-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--bd)}
 .factory-card-head strong{font-size:17px}
-.return-rate-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}
-.return-rate-card{padding:10px;background:var(--bg);border:1px solid var(--bd);border-radius:8px}
+.return-performance{margin:12px 0}
+.return-performance h3{margin:0 0 7px;font-size:13px}
+.return-rate-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.return-rate-card{min-width:0;padding:10px;background:var(--bg);border:1px solid var(--bd);border-radius:8px}
 .return-rate-card span{display:block;color:var(--mu);font-size:12px}
-.return-rate-card strong{display:block;margin-top:3px;color:var(--ac);font-size:24px;line-height:1.15;font-variant-numeric:tabular-nums}
+.return-rate-card strong{display:block;margin-top:3px;color:var(--tx);font-size:20px;line-height:1.15;font-variant-numeric:tabular-nums}
+.return-rate-card small{display:block;margin-top:4px;color:var(--ac);font-size:12px;font-weight:650}
 .factory-total{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0}
 .factory-total strong{font-size:32px;line-height:1;font-variant-numeric:tabular-nums}
 .factory-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
@@ -117,9 +120,13 @@ function setAuthenticated(ready){
 function stats(f){
  const s=D.shifts.filter(x=>x.f===f),r=D.returns.filter(x=>x.f===f),d=D.dispatch.filter(x=>x.f===f);
  const good=sum(s,"good");
- const month=now().slice(0,7),year=month.slice(0,4);
+ const today=new Date(),month=now().slice(0,7),year=month.slice(0,4);
+ const lastMonthDate=new Date(today.getFullYear(),today.getMonth()-1,1);
+ const lastMonth=lastMonthDate.getFullYear()+"-"+String(lastMonthDate.getMonth()+1).padStart(2,"0");
  const sentThisMonth=sum(d.filter(x=>String(x.dt||"").slice(0,7)===month),"qty");
  const returnedThisMonth=sum(r.filter(x=>String(x.dt||"").slice(0,7)===month),"qty");
+ const sentLastMonth=sum(d.filter(x=>String(x.dt||"").slice(0,7)===lastMonth),"qty");
+ const returnedLastMonth=sum(r.filter(x=>String(x.dt||"").slice(0,7)===lastMonth),"qty");
  const sentYtd=sum(d.filter(x=>String(x.dt||"").slice(0,4)===year),"qty");
  const returnedYtd=sum(r.filter(x=>String(x.dt||"").slice(0,4)===year),"qty");
  const acceptedForPeriod=period=>sum(D.receipts.filter(receipt=>
@@ -130,15 +137,21 @@ function stats(f){
  const acceptedYtd=acceptedForPeriod(year);
  return{sent:sum(d,"qty"),used:sum(s,"used"),bad:sum(s,"bad"),good,returned:sum(r,"qty"),pile:good-sum(r,"qty"),
   returnMonth:sentThisMonth?returnedThisMonth/sentThisMonth*100:null,
+  returnedThisMonth,
+  returnLastMonth:sentLastMonth?returnedLastMonth/sentLastMonth*100:null,
+  returnedLastMonth,
   returnYtd:sentYtd?returnedYtd/sentYtd*100:null,
+  returnedYtd,
   acceptanceMonth:sentThisMonth?acceptedThisMonth/sentThisMonth*100:null,
   acceptanceYtd:sentYtd?acceptedYtd/sentYtd*100:null,
   trucksInTransit:r.filter(x=>!D.receipts.some(c=>c.rid===x.id)).length,
   transit:r.filter(x=>!D.receipts.some(c=>c.rid===x.id)).reduce((a,x)=>a+(+x.qty||0),0)}}
 const percent=value=>value===null?"—":`${value.toFixed(1)}%`;
 function returnRateSummary(s){
- const month=new Date().toLocaleString(undefined,{month:"long"});
- return `<div class="return-rate-grid"><div class="return-rate-card"><span>Return rate · ${month}</span><strong>${percent(s.returnMonth)}</strong></div><div class="return-rate-card"><span>Return rate · YTD</span><strong>${percent(s.returnYtd)}</strong></div></div>`;
+ const today=new Date();
+ const month=today.toLocaleString(undefined,{month:"long"});
+ const lastMonth=new Date(today.getFullYear(),today.getMonth()-1,1).toLocaleString(undefined,{month:"long"});
+ return `<section class="return-performance"><h3>Returned cartons &amp; return rate</h3><div class="return-rate-grid"><div class="return-rate-card"><span>This month · ${month}</span><strong>${s.returnedThisMonth.toLocaleString()}</strong><small>cartons · ${percent(s.returnMonth)} of sent</small></div><div class="return-rate-card"><span>Last month · ${lastMonth}</span><strong>${s.returnedLastMonth.toLocaleString()}</strong><small>cartons · ${percent(s.returnLastMonth)} of sent</small></div><div class="return-rate-card"><span>Year to date</span><strong>${s.returnedYtd.toLocaleString()}</strong><small>cartons · ${percent(s.returnYtd)} of sent</small></div></div></section>`;
 }
 function truckEtaSummary(factory){
  const dispatches=D.dispatch.filter(x=>x.f===factory&&x.eta);

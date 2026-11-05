@@ -57,9 +57,10 @@ only their own shift and return-truck records. Seasoning can manage all
 factories. OTA also has a simplified Carton dispatch page that records date,
 time, and quantity without truck or waybill details. OTA's return tracking
 similarly records only date, time, and returned carton quantity. Dashboard
-cards show each factory's monthly and year-to-date return percentage, calculated
-as returned cartons divided by cartons sent in that period; a period with no
-cartons sent displays a dash. They also show carton acceptance MTD/YTD,
+cards prominently show returned carton counts and return percentages for this
+month, last month, and year to date. Return percentage is returned cartons
+divided by cartons sent in that period; a period with no cartons sent displays
+a dash. Cards also show carton acceptance MTD/YTD,
 calculated as cartons accepted at Seasoning during the period divided by
 cartons dispatched by Seasoning during the period; a period with no dispatches
 displays a dash. Sessions expire after eight hours. To change a password,
