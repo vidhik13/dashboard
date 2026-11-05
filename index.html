@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><link rel="icon" type="image/png" href="/dufil-logo.png"><title>Carton Return Tracker</title>
+<html lang="en"><head><meta charset="utf-8"><link rel="icon" type="image/png" href="/dufil-company-logo.png"><title>Carton Return Tracker</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>
 :root{--bg:#f6f5f1;--card:#fff;--tx:#1d1d1b;--mu:#6b6a65;--bd:#e0ded6;--ac:#c2410c;--ok:#15803d;--bad:#b91c1c;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -27,27 +27,14 @@ input,select{padding:8px;border:1px solid var(--bd);border-radius:6px;background
 .edit:disabled,.delete:disabled{opacity:.5;cursor:wait}
 .tw{overflow-x:auto;margin-top:10px}table{border-collapse:collapse;width:100%;font-size:13px}
 th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}th{color:var(--mu);font-weight:500}
-body.login-mode{min-height:100vh;background:radial-gradient(ellipse at 18% 18%,rgba(194,65,12,.09),transparent 38%),var(--bg)}
+body.login-mode{min-height:100vh}
 body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:border-box;display:grid;place-items:center;padding:32px 20px}
-#login{width:min(920px,100%);margin:auto}
+#login{width:min(420px,100%);margin:auto}
 .login-logo{display:flex;justify-content:center;margin:0 auto 18px}
 .login-logo img{display:block;width:156px;height:auto;object-fit:contain}
-.login-card{display:grid;grid-template-columns:1fr 1fr;min-height:500px;overflow:hidden;background:var(--card);border:1px solid var(--bd);border-radius:24px;box-shadow:0 24px 70px rgba(40,32,20,.14)}
-.login-brand{position:relative;isolation:isolate;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;padding:42px;color:#fff;background:linear-gradient(145deg,#29251f 4%,#46301f 58%,#8d3c16)}
-.login-brand:before,.login-brand:after{content:"";position:absolute;z-index:-1;border:1px solid rgba(255,255,255,.12);border-radius:50%}
-.login-brand:before{width:350px;height:350px;right:-180px;top:-150px}
-.login-brand:after{width:270px;height:270px;right:-125px;top:-110px}
-.login-mark{display:grid;place-items:center;width:48px;height:48px;border:1px solid rgba(255,255,255,.35);border-radius:15px;background:rgba(255,255,255,.1);font-size:14px;font-weight:800;letter-spacing:.08em}
-.login-kicker{margin:30px 0 10px;color:#f5b98f;font-size:11px;font-weight:700;letter-spacing:.18em}
-.login-brand h2{max-width:350px;margin:0;font-size:34px;line-height:1.12;letter-spacing:-.04em}
-.login-description{max-width:350px;margin:16px 0 0;color:rgba(255,255,255,.72);font-size:14px;line-height:1.7}
-.login-route{display:flex;align-items:center;gap:12px;margin-top:30px;color:rgba(255,255,255,.82);font-size:11px;font-weight:650;letter-spacing:.1em}
-.route-line{width:48px;height:1px;background:rgba(255,255,255,.45)}
-.route-dot{width:7px;height:7px;border-radius:50%;background:#ffb27b;box-shadow:0 0 14px rgba(255,178,123,.65)}
-.login-footnote{margin:0;color:rgba(255,255,255,.58);font-size:12px}
-.login-panel{display:flex;flex-direction:column;justify-content:center;padding:48px clamp(28px,6vw,68px)}
-.login-panel h2{margin:0;font-size:24px;letter-spacing:-.03em}
-.login-panel>p{margin:7px 0 26px;color:var(--mu);font-size:14px}
+.login-card{overflow:hidden;background:var(--card);border:1px solid var(--bd);border-radius:12px;box-shadow:0 8px 28px rgba(40,32,20,.1)}
+.login-panel{padding:28px}
+.login-panel h2{margin:0 0 20px;font-size:22px}
 #loginMsg{min-height:20px;margin-bottom:10px;color:var(--bad);font-size:13px}
 #login form{grid-template-columns:1fr;gap:16px;padding:0;border:0;background:transparent}
 #login label{gap:7px;font-size:12px;font-weight:650;color:var(--tx)}
@@ -56,23 +43,12 @@ body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:borde
 #login .go{min-height:48px;margin-top:4px;border-radius:9px;font-weight:700;letter-spacing:.01em}
 @media(max-width:680px){
  body.login-mode main{padding:18px 14px}
- .login-card{grid-template-columns:1fr;min-height:0;border-radius:20px}
- .login-brand{min-height:245px;padding:26px 28px}
- .login-brand h2{font-size:28px}
- .login-description{margin-top:10px}
- .login-route{margin-top:18px}
- .login-footnote{display:none}
- .login-panel{padding:30px 28px 34px}
+ .login-panel{padding:24px}
 }
 </style></head><body class="login-mode"><main>
-<section id="login"><div class="login-logo"><img src="dufil-logo.png" alt="Dufil Prima Foods logo" width="320" height="80"></div><div class="login-card">
-<div class="login-brand">
-<div><div class="login-mark" aria-hidden="true">CR</div><p class="login-kicker">CARTON OPERATIONS</p><h2>Every return, accounted for.</h2><p class="login-description">A clear view of dispatches, factory shifts, and cartons on their way back.</p>
-<div class="login-route" aria-hidden="true"><span>FACTORY</span><i class="route-dot"></i><i class="route-line"></i><i class="route-dot"></i><span>SEASONING</span></div></div>
-<p class="login-footnote">Private operations dashboard · Authorized users only</p>
-</div>
+<section id="login"><div class="login-logo"><img src="dufil-company-logo.png" alt="Dufil Prima Foods logo" width="200" height="200"></div><div class="login-card">
 <div class="login-panel">
-<h2>Welcome back</h2><p>Sign in with your Firebase account.</p>
+<h2>Log in</h2>
 <div id="loginMsg" role="status" aria-live="polite"></div>
 <form id="loginForm">
 <label>Email address<input id="email" type="email" autocomplete="username" required></label>
