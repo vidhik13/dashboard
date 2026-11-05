@@ -138,7 +138,7 @@ function formHTML(kind){
   if(user.role!=="seasoning"&&user.factory==="OTA")return field("f_dt","Date & time","datetime-local",`value="${now()}" required`)+field("f_qty","Cartons sent","number","min=\"0\" step=\"1\" required")+`<button class="go">Log dispatch</button>`;
   return field("f_dt","Date & time","datetime-local",`value="${now()}"`)+factoryField()+truckNumberField()+waybillField()+field("f_qty","Cartons sent","number")+field("f_eta","ETA","datetime-local")+`<button class="go">Log dispatch</button>`;
  }
- if(kind==="shifts")return field("f_date","Date","date",`value="${now().slice(0,10)}"`)+factoryField()+wholeNumberField("f_line","Line",true)+`<label>Shift<select id="f_sh"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>`+wholeNumberField("f_used","Total cartons consumed",true)+wholeNumberField("f_good","Good cartons",true)+wholeNumberField("f_bad","Bad cartons",true)+`<div class="mu" style="grid-column:1/-1">Enter Good or Bad cartons first; the other is calculated from the total.</div><button class="go">Save shift</button>`;
+ if(kind==="shifts")return field("f_date","Date","date",`value="${now().slice(0,10)}"`)+factoryField()+wholeNumberField("f_line","Line",true)+`<label>Shift<select id="f_sh"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>`+wholeNumberField("f_used","Total cartons consumed",true)+wholeNumberField("f_good","Good cartons",true)+wholeNumberField("f_bad","Bad cartons",true)+`<div class="mu" style="grid-column:1/-1">Enter Total, then either Good or Bad. The other is calculated automatically: Bad = Total - Good, or Good = Total - Bad.</div><button class="go">Save shift</button>`;
  if(kind==="returns")return factoryField()+truckNumberField()+field("f_driver","Driver name")+field("f_ph","Driver phone")+waybillField()+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
  if(kind==="receipts"){const current=editing?.kind==="receipts"?D.receipts.find(x=>x.id===editing.id):null;const o=D.returns.filter(x=>!D.receipts.some(c=>c.rid===x.id)||x.id===current?.rid).map(x=>`<option value="${escapeHTML(x.id)}">${escapeHTML(x.f)} | ${escapeHTML(x.truck)} | ${escapeHTML(x.wb)} | ${escapeHTML(x.qty)}</option>`).join("");
   return `<label>Truck arrived<select id="f_rid">${o}</select></label>`+calculatedNumberField("f_acc","Accepted cartons (calculated)")+wholeNumberField("f_rej","Rejected")+field("f_dt","Received","datetime-local",`value="${now()}"`)+`<button class="go">Save sorting</button>`}
@@ -248,8 +248,14 @@ function render(){
   if(input&&id==="#f_rid")input.addEventListener("change",updateCalculatedCartons);
  }
  const goodInput=$("#f_good"),badInput=$("#f_bad");
- if(goodInput)goodInput.addEventListener("input",()=>{shiftCartonInputMode="good";updateCalculatedCartons()});
- if(badInput)badInput.addEventListener("input",()=>{shiftCartonInputMode="bad";updateCalculatedCartons()});
+ if(goodInput)goodInput.addEventListener("input",()=>{
+  if(shiftCartonInputMode===null)shiftCartonInputMode="good";
+  updateCalculatedCartons();
+ });
+ if(badInput)badInput.addEventListener("input",()=>{
+  if(shiftCartonInputMode===null)shiftCartonInputMode="bad";
+  updateCalculatedCartons();
+ });
  updateCalculatedCartons();
  document.querySelectorAll("nav button[data-t]").forEach(b=>b.onclick=()=>{editing=null;tab=b.dataset.t;render()});
  const logout=$("#logout");logout.onclick=()=>{token="";user=null;editing=null;sessionStorage.removeItem("carton_token");$("#loginMsg").textContent="You have been logged out.";setAuthenticated(false)};
