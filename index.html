@@ -16,6 +16,26 @@ nav button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px}
 .card.alert{border-color:var(--bad);border-width:2px}
 .big{font-size:26px;font-weight:600}.mu{color:var(--mu);font-size:13px}
+.dashboard-tools{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin:14px 0 20px;padding:12px;background:var(--card);border:1px solid var(--bd);border-radius:10px}
+.dashboard-tools label{min-width:190px;flex:1}
+.dashboard-tools button{min-height:40px}
+.section-heading{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
+.section-heading h2{margin:0}
+.factory-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px}
+.factory-card{padding:16px;border-radius:12px}
+.factory-card.alert{border-color:var(--bad)}
+.factory-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--bd)}
+.factory-card-head strong{font-size:17px}
+.factory-total{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0}
+.factory-total strong{font-size:32px;line-height:1;font-variant-numeric:tabular-nums}
+.factory-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.factory-metric{min-width:0;padding:9px;background:var(--bg);border-radius:8px}
+.factory-metric span{display:block;color:var(--mu);font-size:12px}
+.factory-metric strong{display:block;margin-top:3px;font-size:16px;font-variant-numeric:tabular-nums}
+.factory-metric small{display:block;margin-top:2px;color:var(--mu);font-size:11px}
+.factory-etas{margin-top:12px;border-top:1px solid var(--bd);padding-top:10px}
+.factory-etas summary{color:var(--ac);font-size:13px;font-weight:600;cursor:pointer}
+.factory-eta-list{display:grid;gap:5px;margin-top:8px;color:var(--mu);font-size:12px}
 .badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;background:var(--bad);color:#fff}
 .badge.ok{background:var(--ok)}
 form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px}
@@ -44,6 +64,9 @@ body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:borde
 @media(max-width:680px){
  body.login-mode main{padding:18px 14px}
  .login-panel{padding:24px}
+ .dashboard-tools{align-items:stretch}
+ .dashboard-tools label,.dashboard-tools button{width:100%}
+ .factory-card{padding:13px}
 }
 </style></head><body class="login-mode"><main>
 <section id="login"><div class="login-logo"><img src="dufil-company-logo.png" alt="Dufil Prima Foods logo" width="200" height="200"></div><div class="login-card">
@@ -97,10 +120,12 @@ function truckEtaSummary(factory){
  const dispatches=D.dispatch.filter(x=>x.f===factory&&x.eta);
  const returns=D.returns.filter(x=>x.f===factory&&!D.receipts.some(c=>c.rid===x.id));
  const lines=[
-  ...dispatches.map(x=>`Dispatch truck ${fmt(x.truck||"")}: ${fmt(x.eta)}`),
-  ...returns.map(x=>`Return truck ${fmt(x.truck||"")}: ${fmt(x.eta||"ETA not entered")}`)
+  ...dispatches.map(x=>`Dispatch · ${fmt(x.truck||"Truck")}: ${fmt(x.eta)}`),
+  ...returns.map(x=>`Return · ${fmt(x.truck||"Truck")}: ${fmt(x.eta||"ETA not entered")}`)
  ];
- return lines.length?lines.map(line=>`<div>${line}</div>`).join(""):`<div class="mu">No truck ETAs recorded</div>`;
+ return lines.length
+  ?`<details class="factory-etas"><summary>Truck ETAs (${lines.length})</summary><div class="factory-eta-list">${lines.map(line=>`<div>${line}</div>`).join("")}</div></details>`
+  :"";
 }
 const field=(id,l,t="text",ex="")=>`<label>${l}<input id="${id}" type="${t}" ${ex}></label>`;
 const truckNumberField=()=>field("f_truck","Truck no","text",'autocapitalize="characters" autocomplete="off" spellcheck="false" pattern="[A-Za-z0-9]*"');
@@ -151,11 +176,15 @@ function render(){
  let h="";
  if(!kind){
   const factories=user.role==="seasoning"?F:[user.factory];
-  h=(user.role==="seasoning"?`<label style="max-width:240px">Alert when good cartons pile up to (qty)<input id="thr" type="number" value="${thr}"></label><button class="go" id="checkGoogleSheets" type="button">Check Google Sheets</button><button class="go" id="migrateUpstash" type="button">Import existing data to Google Sheets</button>`:"")+`<h2>${user.role==="seasoning"?"Per noodle factory":user.factory+" factory"}</h2><div class="grid">`+factories.map(f=>{const s=stats(f),al=s.pile>=thr;
+  const isSeasoning=user.role==="seasoning";
+  const factoryCards=factories.map(f=>{const s=stats(f),al=s.pile>=thr;
    const transit=user.role==="seasoning"
-    ?` | Trucks in transit ${s.trucksInTransit} (${s.transit} cartons)`
-    :` | In transit ${s.transit}`;
-   return `<div class="card ${al?"alert":""}"><b>${f}</b> ${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}<div class="big">${s.pile}</div><div class="mu">good cartons waiting to return</div><div class="mu">Sent ${s.sent} | Used ${s.used} | Bad ${s.bad}<br>Returned ${s.returned}${transit}</div>${user.role==="seasoning"?`<div class="mu"><b>Truck ETAs</b>${truckEtaSummary(f)}</div>`:""}</div>`}).join("")+`</div>`+(user.role==="seasoning"?"":`<h2>Trucks on the way back</h2>${rows("returns")}`);
+    ?`${s.trucksInTransit} trucks · ${s.transit} cartons`
+    :`${s.transit} cartons`;
+   if(!isSeasoning)return `<div class="card ${al?"alert":""}"><b>${f}</b> ${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}<div class="big">${s.pile}</div><div class="mu">good cartons waiting to return</div><div class="mu">Sent ${s.sent} | Used ${s.used} | Bad ${s.bad}<br>Returned ${s.returned} | In transit ${transit}</div></div>`;
+   return `<article class="card factory-card ${al?"alert":""}"><div class="factory-card-head"><strong>${f}</strong>${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}</div><div class="factory-total"><span class="mu">Good cartons waiting</span><strong>${s.pile}</strong></div><div class="factory-metrics"><div class="factory-metric"><span>Sent</span><strong>${s.sent}</strong></div><div class="factory-metric"><span>Used</span><strong>${s.used}</strong></div><div class="factory-metric"><span>Bad</span><strong>${s.bad}</strong></div><div class="factory-metric"><span>Returned</span><strong>${s.returned}</strong></div><div class="factory-metric"><span>In transit</span><strong>${s.trucksInTransit} trucks</strong><small>${s.transit} cartons</small></div></div>${truckEtaSummary(f)}</article>`;
+  }).join("");
+  h=(isSeasoning?`<section class="dashboard-tools"><label>Alert threshold (good cartons)<input id="thr" type="number" min="0" value="${thr}"></label><button class="go" id="checkGoogleSheets" type="button">Check Google Sheets</button><button class="go" id="migrateUpstash" type="button">Import old data</button></section>`:"")+`<div class="section-heading"><h2>${isSeasoning?"Factory overview":user.factory+" factory"}</h2>${isSeasoning?'<span class="mu">All 4 plants</span>':""}</div><div class="grid ${isSeasoning?"factory-grid":""}">${factoryCards}</div>`+(!isSeasoning?`<h2>Trucks on the way back</h2>${rows("returns")}`:"");
  }else{
   const isSeasoningReturnTracking=user.role==="seasoning"&&tab==="Return trucks tracking";
   const canUpdate=!isSeasoningReturnTracking&&(user.role==="seasoning"||["shifts","returns"].includes(kind));
