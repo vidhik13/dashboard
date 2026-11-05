@@ -12,7 +12,6 @@ import {
 } from "./google-sheets-store.js";
 import {
   deleteFirebaseBackupRecord,
-  readFirebaseUserProfile,
   syncFirebaseBackup,
   writeFirebaseBackupRecord,
   writeFirebaseBackupSettings,
@@ -61,43 +60,6 @@ function readToken(req) {
   } catch {
     return null;
   }
-}
-
-async function signInWithFirebase(email, password) {
-  const apiKey = process.env.FIREBASE_WEB_API_KEY;
-  if (!apiKey) throw new Error("FIREBASE_WEB_API_KEY is not configured.");
-
-  const response = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(apiKey)}`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email, password, returnSecureToken: true }),
-    },
-  );
-  const result = await response.json();
-  if (!response.ok) {
-    const authenticationErrors = new Set([
-      "EMAIL_NOT_FOUND",
-      "INVALID_EMAIL",
-      "INVALID_LOGIN_CREDENTIALS",
-      "INVALID_PASSWORD",
-      "USER_DISABLED",
-    ]);
-    if (authenticationErrors.has(result.error?.message))
-      throw new Error("Invalid email or password.");
-    throw new Error("Firebase Authentication could not complete sign-in.");
-  }
-  if (typeof result.localId !== "string" || !result.localId)
-    throw new Error("Firebase Authentication returned an invalid account.");
-  return result.localId;
-}
-
-function isValidUserProfile(profile) {
-  if (!profile || typeof profile.username !== "string" || !profile.username)
-    return false;
-  if (profile.role === "seasoning") return profile.factory === undefined;
-  return profile.role === "noodle" && FACTORIES.includes(profile.factory);
 }
 
 function isSeasoning(user) {
@@ -211,33 +173,22 @@ export default async function handler(req, res) {
     if (!process.env.AUTH_SECRET)
       return res.status(500).send("AUTH_SECRET is not configured");
 
-    const email = String(req.body.email || "").trim().toLowerCase();
+    const plant = String(req.body.plant || "");
     const password = String(req.body.password || "");
-    if (!email || !password) return res.status(400).send("Email and password are required.");
-    let uid;
-    try {
-      uid = await signInWithFirebase(email, password);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Firebase sign-in failed.";
-      const status = message === "Invalid email or password." ? 401 : 500;
-      return res.status(status).send(status === 401 ? message : "Firebase Authentication is not configured correctly.");
-    }
-
-    let profile;
-    try {
-      profile = await readFirebaseUserProfile(uid);
-    } catch (error) {
-      console.error("Could not load Firebase user profile:", error);
-      return res.status(500).send("Could not verify account access.");
-    }
-    if (!isValidUserProfile(profile))
-      return res.status(403).send("This Firebase account is not configured for the tracker.");
-
-    const user = {
-      username: profile.username,
-      role: profile.role,
-      ...(profile.factory ? { factory: profile.factory } : {}),
-    };
+    if (!password) return res.status(400).send("Select a plant and enter its password.");
+    if (plant !== "SEASONING" && !FACTORIES.includes(plant))
+      return res.status(400).send("Select a valid plant.");
+    const passwordVariable = plant === "SEASONING"
+      ? "AUTH_PASSWORD_SEASONING"
+      : `AUTH_PASSWORD_${plant}`;
+    const expectedPassword = process.env[passwordVariable];
+    if (!expectedPassword)
+      return res.status(500).send(`Login is not configured for ${plant}.`);
+    if (!safeEqual(password, expectedPassword))
+      return res.status(401).send("Incorrect plant or password.");
+    const user = plant === "SEASONING"
+      ? { username: "seasoning", role: "seasoning" }
+      : { username: plant.toLowerCase(), role: "noodle", factory: plant };
     return res.status(200).json({ token: createToken(user), user });
   }
 

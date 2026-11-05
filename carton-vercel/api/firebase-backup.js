@@ -18,14 +18,6 @@ function getFirestoreDatabase() {
   return getFirestore(app);
 }
 
-export async function readFirebaseUserProfile(uid) {
-  const snapshot = await getFirestoreDatabase()
-    .collection("carton_tracker_users")
-    .doc(uid)
-    .get();
-  return snapshot.exists ? snapshot.data() : null;
-}
-
 function validateRecord(kind, record) {
   if (!COLLECTIONS.includes(kind))
     throw new Error("Invalid Firebase backup collection.");

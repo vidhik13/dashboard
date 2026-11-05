@@ -51,7 +51,7 @@ body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:borde
 <h2>Log in</h2>
 <div id="loginMsg" role="status" aria-live="polite"></div>
 <form id="loginForm">
-<label>Email address<input id="email" type="email" autocomplete="username" required></label>
+<label>Plant<select id="plant" required><option value="">Select plant</option><option value="ABA">ABA</option><option value="KADUNA">KADUNA</option><option value="OTA">OTA</option><option value="PHC">PHC</option><option value="SEASONING">Seasoning</option></select></label>
 <label>Password<input id="password" type="password" autocomplete="current-password" required></label>
 <button class="go">Log in</button>
  </form></div></div></section>
@@ -299,9 +299,9 @@ async function api(m,body,authenticate=true){
 $("#loginForm").onsubmit=async e=>{
  e.preventDefault();
  try{
-  const result=await api("POST",{action:"login",email:$("#email").value,password:$("#password").value},false);
+  const result=await api("POST",{action:"login",plant:$("#plant").value,password:$("#password").value},false);
   token=result.token;user=result.user;sessionStorage.setItem("carton_token",token);
-  $("#password").value="";$("#loginMsg").textContent="";setAuthenticated(true);$("#msg").textContent="";tab="Dashboard";await load();
+  $("#password").value="";$("#plant").value="";$("#loginMsg").textContent="";setAuthenticated(true);$("#msg").textContent="";tab="Dashboard";await load();
  }catch(error){$("#loginMsg").textContent=error.message}
 };
 async function load(){
