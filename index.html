@@ -94,6 +94,7 @@ body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:borde
 const F=["OTA","PHC","KADUNA","ABA"];
 const C=["dispatch","shifts","returns","receipts"];
 let D={dispatch:[],shifts:[],returns:[],receipts:[]},tab="Dashboard",user=null,token=sessionStorage.getItem("carton_token")||"",thr=500;
+let selectedFactory=F[0];
 const $=s=>document.querySelector(s);
 const sum=(a,k)=>a.reduce((s,x)=>s+(+x[k]||0),0);
 const storageMessage=(result,action)=>{
@@ -107,8 +108,7 @@ const now=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOStrin
 const escapeHTML=t=>String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=t=>t?escapeHTML(String(t).replace("T"," ")):"";
 let editing=null;
-const fopts=F.map(f=>`<option>${f}</option>`).join("");
-const factoryField=()=>user.role==="seasoning"?`<label>Factory<select id="f_f">${fopts}</select></label>`:`<input id="f_f" type="hidden" value="${user.factory}">`;
+const factoryField=()=>user.role==="seasoning"?`<label>Factory<select id="f_f">${F.map(f=>`<option${f===selectedFactory?" selected":""}>${f}</option>`).join("")}</select></label>`:`<input id="f_f" type="hidden" value="${user.factory}">`;
 function setAuthenticated(ready){
  $("#login").hidden=ready;
  $("#app").hidden=!ready;
@@ -171,26 +171,30 @@ const waybillField=()=>wholeNumberField("f_wb","Waybill no");
 const calculatedNumberField=(id,label)=>field(id,label,"text",'inputmode="numeric" readonly');
 const val=id=>$("#"+id).value;
 function formHTML(kind){
+ const formFactory=user.role==="seasoning"?selectedFactory:user.factory;
+ const isOtaForm=formFactory==="OTA";
  if(kind==="dispatch"){
-  if(user.role!=="seasoning"&&user.factory==="OTA")return field("f_dt","Date & time","datetime-local",`value="${now()}" required`)+field("f_qty","Cartons sent","number","min=\"0\" step=\"1\" required")+`<button class="go">Log dispatch</button>`;
+  if(isOtaForm)return factoryField()+field("f_dt","Date & time","datetime-local",`value="${now()}" required`)+field("f_qty","Cartons sent","number","min=\"0\" step=\"1\" required")+`<button class="go">Log dispatch</button>`;
   return field("f_dt","Date & time","datetime-local",`value="${now()}"`)+factoryField()+truckNumberField()+waybillField()+field("f_qty","Cartons sent","number")+field("f_eta","ETA","datetime-local")+`<button class="go">Log dispatch</button>`;
  }
  if(kind==="shifts")return field("f_date","Date","date",`value="${now().slice(0,10)}"`)+factoryField()+wholeNumberField("f_line","Line",true)+`<label>Shift<select id="f_sh"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>`+wholeNumberField("f_used","Total cartons consumed",true)+wholeNumberField("f_good","Good cartons",true)+wholeNumberField("f_bad","Bad cartons",true)+`<div class="mu" style="grid-column:1/-1">Enter Total, then either Good or Bad. The other is calculated automatically: Bad = Total - Good, or Good = Total - Bad.</div><button class="go">Save shift</button>`;
  if(kind==="returns"){
-  if(user.role!=="seasoning"&&user.factory==="OTA")return field("f_dt","Date & time","datetime-local",`value="${now()}" required`)+field("f_qty","Cartons returned","number","min=\"0\" step=\"1\" required")+`<button class="go">Log return</button>`;
+  if(isOtaForm)return factoryField()+field("f_dt","Date & time","datetime-local",`value="${now()}" required`)+field("f_qty","Cartons returned","number","min=\"0\" step=\"1\" required")+`<button class="go">Log return</button>`;
   return factoryField()+truckNumberField()+field("f_driver","Driver name")+field("f_ph","Driver phone")+waybillField()+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
  }
  if(kind==="receipts"){const current=editing?.kind==="receipts"?D.receipts.find(x=>x.id===editing.id):null;const o=D.returns.filter(x=>!D.receipts.some(c=>c.rid===x.id)||x.id===current?.rid).map(x=>`<option value="${escapeHTML(x.id)}">${escapeHTML(x.f)} | ${escapeHTML(x.truck)} | ${escapeHTML(x.wb)} | ${escapeHTML(x.qty)}</option>`).join("");
   return `<label>Truck arrived<select id="f_rid">${o}</select></label>`+calculatedNumberField("f_acc","Accepted cartons (calculated)")+wholeNumberField("f_rej","Rejected")+field("f_dt","Received","datetime-local",`value="${now()}"`)+`<button class="go">Save sorting</button>`}
 }
 function rec(kind){
+ const formFactory=user.role==="seasoning"?selectedFactory:user.factory;
+ const isOtaForm=formFactory==="OTA";
  if(kind==="dispatch"){
-  if(user.role!=="seasoning"&&user.factory==="OTA")return{f:"OTA",truck:"",wb:"",qty:+val("f_qty"),dt:val("f_dt"),eta:""};
+  if(isOtaForm)return{f:formFactory,truck:"",wb:"",qty:+val("f_qty"),dt:val("f_dt"),eta:""};
   return{f:val("f_f"),truck:val("f_truck").toUpperCase(),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt"),eta:val("f_eta")};
  }
  if(kind==="shifts")return{f:val("f_f"),date:val("f_date"),line:+val("f_line"),sh:val("f_sh"),used:+val("f_used"),good:+val("f_good"),bad:+val("f_bad")};
  if(kind==="returns"){
-  if(user.role!=="seasoning"&&user.factory==="OTA")return{f:"OTA",truck:"",driver:"",ph:"",wb:"",qty:+val("f_qty"),dt:val("f_dt"),eta:""};
+  if(isOtaForm)return{f:formFactory,truck:"",driver:"",ph:"",wb:"",qty:+val("f_qty"),dt:val("f_dt"),eta:""};
   return{f:val("f_f"),truck:val("f_truck").toUpperCase(),driver:val("f_driver"),ph:val("f_ph"),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt"),eta:val("f_eta")};
  }
  return{rid:val("f_rid"),acc:+val("f_acc"),rej:+val("f_rej"),dt:val("f_dt")};
@@ -242,6 +246,13 @@ function render(){
   h=(canUpdate?`<form id="frm">${editing?.kind===kind?`<div style="grid-column:1/-1">Editing log <button type="button" class="edit" id="cancelEdit">Cancel</button></div>`:""}${formHTML(kind)}</form>`:"")+rows(kind,isSeasoningReturnTracking);
  }
  $("#view").innerHTML=h;
+ const factorySelect=$("#f_f");
+ if(factorySelect&&factorySelect.tagName==="SELECT")factorySelect.onchange=()=>{
+  const values=Object.fromEntries([...$("#frm").querySelectorAll("input,select")].filter(input=>input.id!=="f_f").map(input=>[input.id,input.value]));
+  selectedFactory=factorySelect.value;
+  render();
+  for(const [id,value] of Object.entries(values)){const input=$("#"+id);if(input)input.value=value}
+ };
  for(const input of $("#view").querySelectorAll("#f_good,#f_bad,#f_rej,#f_wb,#f_used,#f_line")){
   input.onbeforeinput=event=>{
    if(event.inputType==="insertText"&&event.data&&/\D/.test(event.data))event.preventDefault();
@@ -261,7 +272,8 @@ function render(){
  };
  if(editing&&editing.kind===kind){
   const record=D[kind].find(item=>item.id===editing.id);
-  const fields={dispatch:user.role!=="seasoning"&&user.factory==="OTA"?{dt:"f_dt",qty:"f_qty"}:{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},shifts:{f:"f_f",date:"f_date",line:"f_line",sh:"f_sh",used:"f_used",good:"f_good",bad:"f_bad"},returns:user.role!=="seasoning"&&user.factory==="OTA"?{dt:"f_dt",qty:"f_qty"}:{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
+  const isOtaRecord=record?.f==="OTA";
+  const fields={dispatch:isOtaRecord?(user.role==="seasoning"?{f:"f_f",dt:"f_dt",qty:"f_qty"}:{dt:"f_dt",qty:"f_qty"}):{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},shifts:{f:"f_f",date:"f_date",line:"f_line",sh:"f_sh",used:"f_used",good:"f_good",bad:"f_bad"},returns:isOtaRecord?(user.role==="seasoning"?{f:"f_f",dt:"f_dt",qty:"f_qty"}:{dt:"f_dt",qty:"f_qty"}):{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
   if(record)for(const [key,id] of Object.entries(fields)){const input=$("#"+id);if(input)input.value=key==="truck"?String(record[key]??"").toUpperCase().replace(/[^A-Z0-9]/g,""):record[key]??""}
   const submit=$("#frm .go");if(submit)submit.textContent="Save changes";
  }
@@ -345,7 +357,8 @@ function render(){
   if(!record){$("#msg").textContent="Action failed: record not found. Refresh and try again.";return}
   if(action==="edit"){
    editing={kind,id};
-   tab=({dispatch:user.role!=="seasoning"&&user.factory==="OTA"?"Carton dispatch":"Seasoning dispatch",shifts:"Noodle shift log",returns:user.role!=="seasoning"&&user.factory==="OTA"?"Return carton tracking":"Return truck",receipts:"Sorting at seasoning"})[kind];
+   if(user.role==="seasoning"&&record.f)selectedFactory=record.f;
+   tab=({dispatch:user.role==="seasoning"?"Seasoning dispatch":record.f==="OTA"?"Carton dispatch":"Seasoning dispatch",shifts:"Noodle shift log",returns:user.role==="seasoning"?"Return trucks tracking":record.f==="OTA"?"Return carton tracking":"Return truck",receipts:"Sorting at seasoning"})[kind];
    render();
    return;
   }

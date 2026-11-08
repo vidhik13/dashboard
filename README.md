@@ -54,9 +54,10 @@ change updates the heading row automatically without moving or deleting data.
 
 Users select their plant and enter its password. Factory accounts can access
 only their own shift and return-truck records. Seasoning can manage all
-factories. OTA also has a simplified Carton dispatch page that records date,
-time, and quantity without truck or waybill details. OTA's return tracking
-similarly records only date, time, and returned carton quantity. Dashboard
+factories. OTA's Carton dispatch and return tracking pages record only date,
+time, and carton quantity, without driver, truck, or waybill details. When
+Seasoning selects OTA, its dispatch and return forms use the same simplified
+fields. Dashboard
 cards prominently show returned carton counts and return percentages for this
 month, last month, and year to date. Return percentage is returned cartons
 divided by cartons sent in that period; a period with no cartons sent displays

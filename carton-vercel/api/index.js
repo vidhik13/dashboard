@@ -65,9 +65,9 @@ function canManageKind(user, kind) {
     || (user.factory === "OTA" && kind === "dispatch");
 }
 
-function isOtaSimpleTransport(user, kind) {
-  return !isSeasoning(user) && user.factory === "OTA"
-    && ["dispatch", "returns"].includes(kind);
+function isOtaSimpleTransport(user, kind, factory = user.factory) {
+  return ["dispatch", "returns"].includes(kind)
+    && (isSeasoning(user) ? factory === "OTA" : user.factory === "OTA");
 }
 
 function clearOtaTransportDetails(record, kind) {
@@ -231,8 +231,9 @@ export default async function handler(req, res) {
         return res.status(400).send("Invalid factory");
       if (!isSeasoning(user)) record.f = user.factory;
     }
-    if (isOtaSimpleTransport(user, kind)) clearOtaTransportDetails(record, kind);
-    if (["dispatch", "returns"].includes(kind) && !isOtaSimpleTransport(user, kind)) {
+    const otaTransport = isOtaSimpleTransport(user, kind, record.f);
+    if (otaTransport) clearOtaTransportDetails(record, kind);
+    if (["dispatch", "returns"].includes(kind) && !otaTransport) {
       if (typeof record.truck !== "string" || !/^[A-Za-z0-9]*$/.test(record.truck))
         return res.status(400).send("Truck number must contain only letters and numbers");
       record.truck = record.truck.toUpperCase();
@@ -342,8 +343,9 @@ export default async function handler(req, res) {
         return res.status(400).send("Invalid factory");
       if (!isSeasoning(user)) record.f = user.factory;
     }
-    if (isOtaSimpleTransport(user, kind)) clearOtaTransportDetails(record, kind);
-    if (["dispatch", "returns"].includes(kind) && !isOtaSimpleTransport(user, kind)) {
+    const otaTransport = isOtaSimpleTransport(user, kind, record.f);
+    if (otaTransport) clearOtaTransportDetails(record, kind);
+    if (["dispatch", "returns"].includes(kind) && !otaTransport) {
       if (typeof record.truck !== "string" || !/^[A-Za-z0-9]*$/.test(record.truck))
         return res.status(400).send("Truck number must contain only letters and numbers");
       record.truck = record.truck.toUpperCase();
