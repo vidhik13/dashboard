@@ -26,20 +26,29 @@ nav button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
 .factory-card.alert{border-color:var(--bad)}
 .factory-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--bd)}
 .factory-card-head strong{font-size:17px}
-.return-performance{margin:12px 0}
-.return-performance h3{margin:0 0 7px;font-size:13px}
-.return-rate-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.return-rate-card{min-width:0;padding:10px;background:var(--bg);border:1px solid var(--bd);border-radius:8px}
-.return-rate-card span{display:block;color:var(--mu);font-size:12px}
-.return-rate-card strong{display:block;margin-top:3px;color:var(--tx);font-size:20px;line-height:1.15;font-variant-numeric:tabular-nums}
-.return-rate-card small{display:block;margin-top:4px;color:var(--ac);font-size:12px;font-weight:650}
-.factory-total{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0}
-.factory-total strong{font-size:32px;line-height:1;font-variant-numeric:tabular-nums}
+.return-performance{margin:14px 0 16px}
+.return-performance h3,.factory-acceptance h3,.factory-metrics-heading{margin:0 0 9px;font-size:13px}
+.return-rate-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.return-rate-card{display:flex;min-width:0;flex-direction:column;gap:4px;padding:12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px}
+.return-rate-card>span:first-child{color:var(--mu);font-size:12px;font-weight:650}
+.return-rate-card strong{margin-top:4px;color:var(--tx);font-size:26px;line-height:1.1;font-variant-numeric:tabular-nums}
+.return-rate-card small{color:var(--mu);font-size:12px}
+.return-rate-card .return-rate{margin-top:5px;padding-top:7px;border-top:1px solid var(--bd);color:var(--mu);font-size:12px}
+.return-rate-card .return-rate b{color:var(--ac);font-size:14px}
+.factory-total{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0;padding:14px;background:var(--bg);border:1px solid var(--bd);border-radius:10px}
+.factory-total strong{font-size:30px;line-height:1;font-variant-numeric:tabular-nums}
+.factory-metrics-heading{margin:16px 0 8px}
 .factory-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .factory-metric{min-width:0;padding:9px;background:var(--bg);border-radius:8px}
 .factory-metric span{display:block;color:var(--mu);font-size:12px}
 .factory-metric strong{display:block;margin-top:3px;font-size:16px;font-variant-numeric:tabular-nums}
 .factory-metric small{display:block;margin-top:2px;color:var(--mu);font-size:11px}
+.factory-acceptance{margin-top:14px;padding-top:12px;border-top:1px solid var(--bd)}
+.acceptance-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.acceptance-metric{padding:10px;background:var(--bg);border-radius:8px}
+.acceptance-metric span,.acceptance-metric small{display:block;color:var(--mu);font-size:12px}
+.acceptance-metric strong{display:block;margin-top:4px;font-size:20px;font-variant-numeric:tabular-nums}
+.acceptance-metric small{margin-top:3px;font-size:11px}
 .factory-etas{margin-top:12px;border-top:1px solid var(--bd);padding-top:10px}
 .factory-etas summary{color:var(--ac);font-size:13px;font-weight:600;cursor:pointer}
 .factory-eta-list{display:grid;gap:5px;margin-top:8px;color:var(--mu);font-size:12px}
@@ -74,6 +83,9 @@ body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:borde
  .dashboard-tools{align-items:stretch}
  .dashboard-tools label,.dashboard-tools button{width:100%}
  .factory-card{padding:13px}
+ .return-rate-grid{gap:6px}
+ .return-rate-card{padding:9px}
+ .return-rate-card strong{font-size:22px}
 }
 </style></head><body class="login-mode"><main>
 <section id="login"><div class="login-logo"><img src="dufil-company-logo.png" alt="Dufil Prima Foods logo" width="200" height="200"></div><div class="login-card">
@@ -142,6 +154,8 @@ function stats(f){
   returnedLastMonth,
   returnYtd:sentYtd?returnedYtd/sentYtd*100:null,
   returnedYtd,
+  acceptedThisMonth,
+  acceptedYtd,
   acceptanceMonth:sentThisMonth?acceptedThisMonth/sentThisMonth*100:null,
   acceptanceYtd:sentYtd?acceptedYtd/sentYtd*100:null,
   trucksInTransit:r.filter(x=>!D.receipts.some(c=>c.rid===x.id)).length,
@@ -151,7 +165,15 @@ function returnRateSummary(s){
  const today=new Date();
  const month=today.toLocaleString(undefined,{month:"long"});
  const lastMonth=new Date(today.getFullYear(),today.getMonth()-1,1).toLocaleString(undefined,{month:"long"});
- return `<section class="return-performance"><h3>Returned cartons &amp; return rate</h3><div class="return-rate-grid"><div class="return-rate-card"><span>This month · ${month}</span><strong>${s.returnedThisMonth.toLocaleString()}</strong><small>cartons · ${percent(s.returnMonth)} of sent</small></div><div class="return-rate-card"><span>Last month · ${lastMonth}</span><strong>${s.returnedLastMonth.toLocaleString()}</strong><small>cartons · ${percent(s.returnLastMonth)} of sent</small></div><div class="return-rate-card"><span>Year to date</span><strong>${s.returnedYtd.toLocaleString()}</strong><small>cartons · ${percent(s.returnYtd)} of sent</small></div></div></section>`;
+ const year=today.getFullYear();
+ const periodCard=(label,quantity,rate)=>`<div class="return-rate-card"><span>${label}</span><strong>${quantity.toLocaleString()}</strong><small>cartons returned</small><div class="return-rate">Return rate <b>${rate===null?"—":percent(rate)}</b>${rate===null?" · no dispatches yet":" · of cartons sent"}</div></div>`;
+ return `<section class="return-performance"><h3>Cartons returned</h3><div class="return-rate-grid">${periodCard(`MTD · ${month} ${year}`,s.returnedThisMonth,s.returnMonth)}${periodCard(`Last month · ${lastMonth}`,s.returnedLastMonth,s.returnLastMonth)}${periodCard(`YTD · ${year}`,s.returnedYtd,s.returnYtd)}</div></section>`;
+}
+function acceptanceSummary(s){
+ const today=new Date();
+ const month=today.toLocaleString(undefined,{month:"long"});
+ const year=today.getFullYear();
+ return `<section class="factory-acceptance"><h3>Carton acceptance at Seasoning</h3><div class="acceptance-grid"><div class="acceptance-metric"><span>MTD · ${month} ${year}</span><strong>${percent(s.acceptanceMonth)}</strong><small>${s.acceptedThisMonth.toLocaleString()} cartons accepted of dispatched</small></div><div class="acceptance-metric"><span>YTD · ${year}</span><strong>${percent(s.acceptanceYtd)}</strong><small>${s.acceptedYtd.toLocaleString()} cartons accepted of dispatched</small></div></div></section>`;
 }
 function truckEtaSummary(factory){
  const dispatches=D.dispatch.filter(x=>x.f===factory&&x.eta);
@@ -231,14 +253,11 @@ function render(){
  if(!kind){
   const factories=user.role==="seasoning"?F:[user.factory];
   const isSeasoning=user.role==="seasoning";
-  const factoryCards=factories.map(f=>{const s=stats(f),al=s.pile>=thr;
-   const transit=user.role==="seasoning"
-    ?`${s.trucksInTransit} trucks · ${s.transit} cartons`
-    :`${s.transit} cartons`;
-   if(!isSeasoning)return `<div class="card ${al?"alert":""}"><b>${f}</b> ${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}${returnRateSummary(s)}<div class="big">${s.pile}</div><div class="mu">good cartons waiting to return</div><div class="mu">Sent ${s.sent} | Used ${s.used} | Bad ${s.bad}<br>Returned ${s.returned} | In transit ${transit}<br>Acceptance: MTD ${percent(s.acceptanceMonth)} | YTD ${percent(s.acceptanceYtd)}</div></div>`;
-   return `<article class="card factory-card ${al?"alert":""}"><div class="factory-card-head"><strong>${f}</strong>${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}</div>${returnRateSummary(s)}<div class="factory-total"><span class="mu">Good cartons waiting</span><strong>${s.pile}</strong></div><div class="factory-metrics"><div class="factory-metric"><span>Sent</span><strong>${s.sent}</strong></div><div class="factory-metric"><span>Used</span><strong>${s.used}</strong></div><div class="factory-metric"><span>Bad</span><strong>${s.bad}</strong></div><div class="factory-metric"><span>Returned</span><strong>${s.returned}</strong></div><div class="factory-metric"><span>In transit</span><strong>${s.trucksInTransit} trucks</strong><small>${s.transit} cartons</small></div><div class="factory-metric"><span>Acceptance MTD</span><strong>${percent(s.acceptanceMonth)}</strong></div><div class="factory-metric"><span>Acceptance YTD</span><strong>${percent(s.acceptanceYtd)}</strong></div></div>${truckEtaSummary(f)}</article>`;
+  const factoryCards=factories.map(f=>{const s=stats(f),al=s.pile>=thr,ota=f==="OTA";
+   const transit=ota?`<div class="factory-metric"><span>Cartons in transit</span><strong>${s.transit.toLocaleString()}</strong></div>`:`<div class="factory-metric"><span>Trucks in transit</span><strong>${s.trucksInTransit.toLocaleString()}</strong><small>${s.transit.toLocaleString()} cartons</small></div>`;
+   return `<article class="card factory-card ${al?"alert":""}"><div class="factory-card-head"><strong>${f}</strong>${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}</div>${returnRateSummary(s)}<div class="factory-total"><span class="mu">Good cartons waiting to return</span><strong>${s.pile.toLocaleString()}</strong></div><h3 class="factory-metrics-heading">Carton flow · all time</h3><div class="factory-metrics"><div class="factory-metric"><span>Cartons sent</span><strong>${s.sent.toLocaleString()}</strong></div><div class="factory-metric"><span>Cartons used</span><strong>${s.used.toLocaleString()}</strong></div><div class="factory-metric"><span>Bad cartons</span><strong>${s.bad.toLocaleString()}</strong></div><div class="factory-metric"><span>Cartons returned</span><strong>${s.returned.toLocaleString()}</strong></div>${transit}</div>${acceptanceSummary(s)}${isSeasoning?truckEtaSummary(f):""}</article>`;
   }).join("");
-  h=(isSeasoning?`<section class="dashboard-tools"><label>Alert threshold (good cartons)<input id="thr" type="number" min="0" value="${thr}"></label><button class="go" id="checkGoogleSheets" type="button">Check Google Sheets</button><button class="go" id="migrateUpstash" type="button">Import old data</button></section>`:"")+`<div class="section-heading"><h2>${isSeasoning?"Factory overview":user.factory+" factory"}</h2>${isSeasoning?'<span class="mu">All 4 plants</span>':""}</div><div class="grid ${isSeasoning?"factory-grid":""}">${factoryCards}</div>`+(!isSeasoning?`<h2>Trucks on the way back</h2>${rows("returns")}`:"");
+  h=(isSeasoning?`<section class="dashboard-tools"><label>Alert threshold (good cartons)<input id="thr" type="number" min="0" value="${thr}"></label><button class="go" id="checkGoogleSheets" type="button">Check Google Sheets</button><button class="go" id="migrateUpstash" type="button">Import old data</button></section>`:"")+`<div class="section-heading"><h2>${isSeasoning?"Factory overview":user.factory+" dashboard"}</h2>${isSeasoning?'<span class="mu">All 4 plants</span>':""}</div><div class="grid ${isSeasoning?"factory-grid":""}">${factoryCards}</div>`+(!isSeasoning?`<h2>${user.factory==="OTA"?"Recent carton returns":"Trucks on the way back"}</h2>${rows("returns")}`:"");
  }else{
   const isSeasoningReturnTracking=user.role==="seasoning"&&tab==="Return trucks tracking";
   const isOtaSimpleTransport=["dispatch","returns"].includes(kind)&&user.role!=="seasoning"&&user.factory==="OTA";
