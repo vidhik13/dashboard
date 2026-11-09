@@ -54,7 +54,7 @@ change updates the heading row automatically without moving or deleting data.
 
 Users select their plant and enter its password. Factory accounts can access
 only their own shift and return-truck records. Seasoning can manage all
-factories. OTA's Carton dispatch and return tracking pages record only date,
+factories. OTA's Seasoning dispatch and return tracking pages record only date,
 time, and carton quantity, without driver, truck, or waybill details. When
 Seasoning selects OTA, its dispatch and return forms use the same simplified
 fields. Dashboard

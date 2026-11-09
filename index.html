@@ -120,7 +120,12 @@ const now=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOStrin
 const escapeHTML=t=>String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=t=>t?escapeHTML(String(t).replace("T"," ")):"";
 let editing=null;
+const FACTORY_LINE_OPTIONS={OTA:[1,2,3,4,5,6],PHC:[1,2,3,4,5,6,7,8,9],KADUNA:[1,2,3,4,5,6],ABA:[1,2]};
 const factoryField=()=>user.role==="seasoning"?`<label>Factory<select id="f_f">${F.map(f=>`<option${f===selectedFactory?" selected":""}>${f}</option>`).join("")}</select></label>`:`<input id="f_f" type="hidden" value="${user.factory}">`;
+const lineSelectField=(factory=selectedFactory,currentValue="")=>{
+ const choices=FACTORY_LINE_OPTIONS[factory]||FACTORY_LINE_OPTIONS.OTA;
+ return `<label>Line<select id="f_line" required>${["<option value=\"\">Select line</option>",...choices.map(line=>`<option value="${line}"${String(currentValue)===String(line)?" selected":""}>${line}</option>`)].join("")}</select></label>`;
+};
 function setAuthenticated(ready){
  $("#login").hidden=ready;
  $("#app").hidden=!ready;
@@ -199,7 +204,7 @@ function formHTML(kind){
   if(isOtaForm)return factoryField()+field("f_dt","Date & time","datetime-local",`value="${now()}" required`)+field("f_qty","Cartons sent","number","min=\"0\" step=\"1\" required")+`<button class="go">Log dispatch</button>`;
   return field("f_dt","Date & time","datetime-local",`value="${now()}"`)+factoryField()+truckNumberField()+waybillField()+field("f_qty","Cartons sent","number")+field("f_eta","ETA","datetime-local")+`<button class="go">Log dispatch</button>`;
  }
- if(kind==="shifts")return field("f_date","Date","date",`value="${now().slice(0,10)}"`)+factoryField()+wholeNumberField("f_line","Line",true)+`<label>Shift<select id="f_sh"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>`+wholeNumberField("f_used","Total cartons consumed",true)+wholeNumberField("f_good","Good cartons",true)+wholeNumberField("f_bad","Bad cartons",true)+`<div class="mu" style="grid-column:1/-1">Enter Total, then either Good or Bad. The other is calculated automatically: Bad = Total - Good, or Good = Total - Bad.</div><button class="go">Save shift</button>`;
+ if(kind==="shifts")return field("f_date","Date","date",`value="${now().slice(0,10)}"`)+factoryField()+lineSelectField(formFactory)+`<label>Shift<select id="f_sh"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>`+wholeNumberField("f_used","Total cartons consumed",true)+wholeNumberField("f_good","Good cartons",true)+wholeNumberField("f_bad","Bad cartons",true)+`<div class="mu" style="grid-column:1/-1">Enter Total, then either Good or Bad. The other is calculated automatically: Bad = Total - Good, or Good = Total - Bad.</div><button class="go">Save shift</button>`;
  if(kind==="returns"){
   if(isOtaForm)return factoryField()+field("f_dt","Date & time","datetime-local",`value="${now()}" required`)+field("f_qty","Cartons returned","number","min=\"0\" step=\"1\" required")+`<button class="go">Log return</button>`;
   return factoryField()+truckNumberField()+field("f_driver","Driver name")+field("f_ph","Driver phone")+waybillField()+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
@@ -245,10 +250,10 @@ function render(){
  if(!user)return;
  const tabs=user.role==="seasoning"
   ?["Dashboard","Seasoning dispatch","Return trucks tracking","Sorting at seasoning"]
-  :["Dashboard",user.factory==="OTA"?"Carton dispatch":"Seasoning dispatch","Noodle shift log",user.factory==="OTA"?"Return carton tracking":"Return truck","Sorting at seasoning"];
+  :["Dashboard","Seasoning dispatch","Noodle shift log",user.factory==="OTA"?"Return carton tracking":"Return truck","Sorting at seasoning"];
  if(!tabs.includes(tab))tab="Dashboard";
  $("#nav").innerHTML=tabs.map(t=>`<button class="${t===tab?"on":""}" data-t="${t}">${t}</button>`).join("")+`<button id="logout">Log out</button>`;
- const kind={"Seasoning dispatch":"dispatch","Carton dispatch":"dispatch","Noodle shift log":"shifts","Return truck":"returns","Return carton tracking":"returns","Return trucks tracking":"returns","Sorting at seasoning":"receipts"}[tab];
+ const kind={"Seasoning dispatch":"dispatch","Noodle shift log":"shifts","Return truck":"returns","Return carton tracking":"returns","Return trucks tracking":"returns","Sorting at seasoning":"receipts"}[tab];
  let h="";
  if(!kind){
   const factories=user.role==="seasoning"?F:[user.factory];
@@ -267,12 +272,12 @@ function render(){
  $("#view").innerHTML=h;
  const factorySelect=$("#f_f");
  if(factorySelect&&factorySelect.tagName==="SELECT")factorySelect.onchange=()=>{
-  const values=Object.fromEntries([...$("#frm").querySelectorAll("input,select")].filter(input=>input.id!=="f_f").map(input=>[input.id,input.value]));
+  const values=Object.fromEntries([...$("#frm").querySelectorAll("input,select")].filter(input=>!["f_f","f_line"].includes(input.id)).map(input=>[input.id,input.value]));
   selectedFactory=factorySelect.value;
   render();
   for(const [id,value] of Object.entries(values)){const input=$("#"+id);if(input)input.value=value}
  };
- for(const input of $("#view").querySelectorAll("#f_good,#f_bad,#f_rej,#f_wb,#f_used,#f_line")){
+ for(const input of $("#view").querySelectorAll("#f_good,#f_bad,#f_rej,#f_wb,#f_used")){
   input.onbeforeinput=event=>{
    if(event.inputType==="insertText"&&event.data&&/\D/.test(event.data))event.preventDefault();
   };
@@ -377,7 +382,7 @@ function render(){
   if(action==="edit"){
    editing={kind,id};
    if(user.role==="seasoning"&&record.f)selectedFactory=record.f;
-   tab=({dispatch:user.role==="seasoning"?"Seasoning dispatch":record.f==="OTA"?"Carton dispatch":"Seasoning dispatch",shifts:"Noodle shift log",returns:user.role==="seasoning"?"Return trucks tracking":record.f==="OTA"?"Return carton tracking":"Return truck",receipts:"Sorting at seasoning"})[kind];
+   tab=({dispatch:"Seasoning dispatch",shifts:"Noodle shift log",returns:user.role==="seasoning"?"Return trucks tracking":record.f==="OTA"?"Return carton tracking":"Return truck",receipts:"Sorting at seasoning"})[kind];
    render();
    return;
   }
