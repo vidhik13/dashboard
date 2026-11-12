@@ -123,7 +123,7 @@ let editing=null;
 const FACTORY_LINE_OPTIONS={OTA:[1,2,3,4,5,6],PHC:[1,2,3,4,5,6,7,8,9],KADUNA:[1,2,3,4,5,6],ABA:[1,2]};
 const factoryField=()=>user.role==="seasoning"?`<label>Factory<select id="f_f">${F.map(f=>`<option${f===selectedFactory?" selected":""}>${f}</option>`).join("")}</select></label>`:`<input id="f_f" type="hidden" value="${user.factory}">`;
 const lineSelectField=(factory=selectedFactory,currentValue="")=>{
- const choices=FACTORY_LINE_OPTIONS[factory]||FACTORY_LINE_OPTIONS.OTA;
+ const choices=FACTORY_LINE_OPTIONS[factory]||[];
  return `<label>Line<select id="f_line" required>${["<option value=\"\">Select line</option>",...choices.map(line=>`<option value="${line}"${String(currentValue)===String(line)?" selected":""}>${line}</option>`)].join("")}</select></label>`;
 };
 function setAuthenticated(ready){
@@ -237,7 +237,7 @@ function rows(kind,readOnly=false){
  a.sort((x,y)=>String(y.dt||y.date||"").localeCompare(String(x.dt||x.date||"")));
  const isOtaSimpleTransport=["dispatch","returns"].includes(kind)&&user.role!=="seasoning"&&user.factory==="OTA";
  const c=isOtaSimpleTransport?[["dt","Date & time"],["qty",kind==="returns"?"Cartons returned":"Cartons sent"]]:COLS[kind];
- const canManage=!readOnly&&(user.role==="seasoning"||["shifts","returns"].includes(kind)||isOtaSimpleTransport);
+ const canManage=!readOnly&&(user.role==="seasoning"||["shifts","returns"].includes(kind));
  const actionHeader=canManage?"<th>Actions</th>":"";
  const rowHTML=a.map(r=>{
   const canManageRecord=canManage&&(user.role==="seasoning"||r.f===user.factory);
@@ -265,8 +265,7 @@ function render(){
   h=(isSeasoning?`<section class="dashboard-tools"><label>Alert threshold (good cartons)<input id="thr" type="number" min="0" value="${thr}"></label><button class="go" id="checkGoogleSheets" type="button">Check Google Sheets</button><button class="go" id="migrateUpstash" type="button">Import old data</button></section>`:"")+`<div class="section-heading"><h2>${isSeasoning?"Factory overview":user.factory+" dashboard"}</h2>${isSeasoning?'<span class="mu">All 4 plants</span>':""}</div><div class="grid ${isSeasoning?"factory-grid":""}">${factoryCards}</div>`+(!isSeasoning?`<h2>${user.factory==="OTA"?"Recent carton returns":"Trucks on the way back"}</h2>${rows("returns")}`:"");
  }else{
   const isSeasoningReturnTracking=user.role==="seasoning"&&tab==="Return trucks tracking";
-  const isOtaSimpleTransport=["dispatch","returns"].includes(kind)&&user.role!=="seasoning"&&user.factory==="OTA";
-  const canUpdate=!isSeasoningReturnTracking&&(user.role==="seasoning"||["shifts","returns"].includes(kind)||isOtaSimpleTransport);
+  const canUpdate=!isSeasoningReturnTracking&&(user.role==="seasoning"||["shifts","returns"].includes(kind));
   h=(canUpdate?`<form id="frm">${editing?.kind===kind?`<div style="grid-column:1/-1">Editing log <button type="button" class="edit" id="cancelEdit">Cancel</button></div>`:""}${formHTML(kind)}</form>`:"")+rows(kind,isSeasoningReturnTracking);
  }
  $("#view").innerHTML=h;

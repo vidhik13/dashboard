@@ -13,6 +13,12 @@ import {
 let redis;
 const KINDS = ["dispatch", "shifts", "returns", "receipts"];
 const FACTORIES = ["OTA", "PHC", "KADUNA", "ABA"];
+const FACTORY_LINES = {
+  OTA: [1, 2, 3, 4, 5, 6],
+  PHC: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  KADUNA: [1, 2, 3, 4, 5, 6],
+  ABA: [1, 2],
+};
 
 function safeEqual(a, b) {
   return timingSafeEqual(
@@ -61,8 +67,7 @@ function isSeasoning(user) {
 
 function canManageKind(user, kind) {
   return isSeasoning(user)
-    || ["shifts", "returns"].includes(kind)
-    || (user.factory === "OTA" && kind === "dispatch");
+    || ["shifts", "returns"].includes(kind);
 }
 
 function isOtaSimpleTransport(user, kind, factory = user.factory) {
@@ -90,6 +95,10 @@ function normalizeFactoryRecord(record) {
 
 function hasNonNegativeIntegers(record, fields) {
   return fields.every(field => Number.isSafeInteger(record[field]) && record[field] >= 0);
+}
+
+function isValidFactoryLine(factory, line) {
+  return FACTORY_LINES[factory]?.includes(line) || false;
 }
 
 function getUpstashRedis() {
@@ -241,8 +250,8 @@ export default async function handler(req, res) {
         return res.status(400).send("Waybill number must contain digits only");
     }
     if (kind === "shifts") {
-      if (!Number.isSafeInteger(record.line) || record.line < 1)
-        return res.status(400).send("Line must be a whole number greater than zero");
+      if (!Number.isSafeInteger(record.line) || !isValidFactoryLine(record.f, record.line))
+        return res.status(400).send(`Invalid line for ${record.f}`);
       if (!["1", "2", "3"].includes(String(record.sh)))
         return res.status(400).send("Shift must be 1, 2, or 3");
       record.sh = String(record.sh);
@@ -353,8 +362,8 @@ export default async function handler(req, res) {
         return res.status(400).send("Waybill number must contain digits only");
     }
     if (kind === "shifts") {
-      if (!Number.isSafeInteger(record.line) || record.line < 1)
-        return res.status(400).send("Line must be a whole number greater than zero");
+      if (!Number.isSafeInteger(record.line) || !isValidFactoryLine(record.f, record.line))
+        return res.status(400).send(`Invalid line for ${record.f}`);
       if (!["1", "2", "3"].includes(String(record.sh)))
         return res.status(400).send("Shift must be 1, 2, or 3");
       record.sh = String(record.sh);
