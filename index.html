@@ -262,7 +262,7 @@ function render(){
    const transit=ota?`<div class="factory-metric"><span>Cartons in transit</span><strong>${s.transit.toLocaleString()}</strong></div>`:`<div class="factory-metric"><span>Trucks in transit</span><strong>${s.trucksInTransit.toLocaleString()}</strong><small>${s.transit.toLocaleString()} cartons</small></div>`;
    return `<article class="card factory-card ${al?"alert":""}"><div class="factory-card-head"><strong>${f}</strong>${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}</div>${returnRateSummary(s)}<div class="factory-total"><span class="mu">Good cartons waiting to return</span><strong>${s.pile.toLocaleString()}</strong></div><h3 class="factory-metrics-heading">Carton flow · all time</h3><div class="factory-metrics"><div class="factory-metric"><span>Cartons sent</span><strong>${s.sent.toLocaleString()}</strong></div><div class="factory-metric"><span>Cartons used</span><strong>${s.used.toLocaleString()}</strong></div><div class="factory-metric"><span>Bad cartons</span><strong>${s.bad.toLocaleString()}</strong></div><div class="factory-metric"><span>Cartons returned</span><strong>${s.returned.toLocaleString()}</strong></div>${transit}</div>${acceptanceSummary(s)}${isSeasoning?truckEtaSummary(f):""}</article>`;
   }).join("");
-  h=(isSeasoning?`<section class="dashboard-tools"><label>Alert threshold (good cartons)<input id="thr" type="number" min="0" value="${thr}"></label><button class="go" id="checkGoogleSheets" type="button">Check Google Sheets</button><button class="go" id="migrateUpstash" type="button">Import old data</button></section>`:"")+`<div class="section-heading"><h2>${isSeasoning?"Factory overview":user.factory+" dashboard"}</h2>${isSeasoning?'<span class="mu">All 4 plants</span>':""}</div><div class="grid ${isSeasoning?"factory-grid":""}">${factoryCards}</div>`+(!isSeasoning?`<h2>${user.factory==="OTA"?"Recent carton returns":"Trucks on the way back"}</h2>${rows("returns")}`:"");
+  h=(isSeasoning?`<section class="dashboard-tools"><label>Alert threshold (good cartons)<input id="thr" type="number" min="0" value="${thr}"></label><button class="go" id="checkGoogleSheets" type="button">Check Google Sheets</button></section>`:"")+`<div class="section-heading"><h2>${isSeasoning?"Factory overview":user.factory+" dashboard"}</h2>${isSeasoning?'<span class="mu">All 4 plants</span>':""}</div><div class="grid ${isSeasoning?"factory-grid":""}">${factoryCards}</div>`+(!isSeasoning?`<h2>${user.factory==="OTA"?"Recent carton returns":"Trucks on the way back"}</h2>${rows("returns")}`:"");
  }else{
   const isSeasoningReturnTracking=user.role==="seasoning"&&tab==="Return trucks tracking";
   const canUpdate=!isSeasoningReturnTracking&&(user.role==="seasoning"||["shifts","returns"].includes(kind));
@@ -352,16 +352,6 @@ function render(){
   }catch(error){
    $("#msg").textContent="Google Sheets check failed: "+error.message;
   }finally{sheetsButton.disabled=false}
- };
- const migrationButton=$("#migrateUpstash");if(migrationButton)migrationButton.onclick=async()=>{
-  if(!window.confirm("Import existing Upstash records into Google Sheets? This one-time import merges rows."))return;
-  migrationButton.disabled=true;
-  try{
-   const result=await api("POST",{action:"migrateUpstash"});
-   $("#msg").textContent=result.migrationMessage;
-  }catch(error){
-   $("#msg").textContent="Upstash import failed: "+error.message;
-  }finally{migrationButton.disabled=false}
  };
  const fm=$("#frm");if(fm)fm.onsubmit=async e=>{
   e.preventDefault();
