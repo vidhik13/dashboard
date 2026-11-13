@@ -119,6 +119,22 @@ function storageResult() {
   };
 }
 
+export async function excelExportHandler(req, res) {
+  if (req.method !== "GET") return res.status(405).send("Method not allowed");
+  const exportToken = process.env.EXCEL_EXPORT_TOKEN;
+  if (!exportToken || exportToken.length < 32)
+    return res.status(503).send("Excel export requires an EXCEL_EXPORT_TOKEN of at least 32 characters.");
+  if (!safeEqual(req.headers["x-export-token"] || "", exportToken))
+    return res.status(401).send("Unauthorized");
+
+  const url = new URL(req.url, "http://localhost");
+  const kind = url.searchParams.get("kind");
+  if (!KINDS.includes(kind)) return res.status(400).send("Select a valid export kind.");
+
+  res.setHeader("Cache-Control", "no-store");
+  return res.status(200).json(await readRecords(kind));
+}
+
 export default async function handler(req, res) {
   if (req.method === "POST" && req.body?.action === "login") {
     if (!process.env.AUTH_SECRET)
