@@ -35,23 +35,23 @@ nav button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
 .return-rate-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .return-rate-card{display:flex;min-width:0;flex-direction:column;gap:4px;padding:12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px}
 .return-rate-card>span:first-child{color:var(--mu);font-size:12px;font-weight:650}
-.return-rate-card strong{margin-top:4px;color:var(--tx);font-size:clamp(18px,2vw,26px);line-height:1.1;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.return-rate-card strong{margin-top:4px;color:var(--tx);font-size:clamp(18px,2vw,26px);line-height:1.1;font-variant-numeric:tabular-nums;white-space:nowrap}
 .return-rate-card small{color:var(--mu);font-size:12px}
 .return-rate-card .return-rate{margin-top:5px;padding-top:7px;border-top:1px solid var(--bd);color:var(--mu);font-size:12px}
 .return-rate-card .return-rate b{color:var(--ac);font-size:14px}
 .factory-total{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0;padding:14px;background:var(--bg);border:1px solid var(--bd);border-radius:10px}
-.factory-total strong{font-size:clamp(20px,2.4vw,30px);line-height:1;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.factory-total strong{font-size:clamp(20px,2.4vw,30px);line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap}
 .factory-metrics-heading{margin:16px 0 8px}
-.factory-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.factory-metrics{display:grid;grid-auto-columns:minmax(100px,1fr);grid-auto-flow:column;grid-template-columns:none;gap:8px;overflow-x:auto}
 .factory-metric{min-width:0;padding:9px;background:var(--bg);border-radius:8px}
 .factory-metric span{display:block;color:var(--mu);font-size:12px}
-.factory-metric strong{display:block;margin-top:3px;font-size:16px;font-variant-numeric:tabular-nums}
+.factory-metric strong{display:block;margin-top:3px;font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .factory-metric small{display:block;margin-top:2px;color:var(--mu);font-size:11px}
 .factory-acceptance{margin-top:14px;padding-top:12px;border-top:1px solid var(--bd)}
 .acceptance-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .acceptance-metric{padding:10px;background:var(--bg);border-radius:8px}
 .acceptance-metric span,.acceptance-metric small{display:block;color:var(--mu);font-size:12px}
-.acceptance-metric strong{display:block;margin-top:4px;font-size:20px;font-variant-numeric:tabular-nums}
+.acceptance-metric strong{display:block;margin-top:4px;font-size:20px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .acceptance-metric small{margin-top:3px;font-size:11px}
 .factory-etas{margin-top:12px;border-top:1px solid var(--bd);padding-top:10px}
 .factory-etas summary{color:var(--ac);font-size:13px;font-weight:600;cursor:pointer}
@@ -117,9 +117,9 @@ const $=s=>document.querySelector(s);
 const sum=(a,k)=>a.reduce((s,x)=>s+(+x[k]||0),0);
 const storageMessage=(result,action)=>{
  const messages=[`${action}.`];
- if(result.storageSync==="synced")messages.push("Saved to Google Sheets.");
+ if(result.storageSync==="synced")messages.push("Saved to Supabase.");
  else if(result.storageSync==="failed"||result.storageSync==="not_configured")messages.push(result.storageMessage);
- else messages.push("Google Sheets save status could not be confirmed.");
+ else messages.push("Supabase save status could not be confirmed.");
  return messages.join(" ");
 };
 const now=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);
@@ -268,7 +268,7 @@ function render(){
    const transit=ota?`<div class="factory-metric"><span>Cartons in transit</span><strong>${s.transit.toLocaleString()}</strong></div>`:`<div class="factory-metric"><span>Trucks in transit</span><strong>${s.trucksInTransit.toLocaleString()}</strong><small>${s.transit.toLocaleString()} cartons</small></div>`;
    return `<article class="card factory-card ${al?"alert":""}"><div class="factory-card-head"><strong>${f}</strong>${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}</div>${returnRateSummary(s)}<div class="factory-total"><span class="mu">Good cartons waiting to return</span><strong>${s.pile.toLocaleString()}</strong></div><h3 class="factory-metrics-heading">Carton flow · all time</h3><div class="factory-metrics"><div class="factory-metric"><span>Cartons sent</span><strong>${s.sent.toLocaleString()}</strong></div><div class="factory-metric"><span>Cartons used</span><strong>${s.used.toLocaleString()}</strong></div><div class="factory-metric"><span>Bad cartons</span><strong>${s.bad.toLocaleString()}</strong></div><div class="factory-metric"><span>Cartons returned</span><strong>${s.returned.toLocaleString()}</strong></div>${transit}</div>${acceptanceSummary(s)}${isSeasoning?truckEtaSummary(f):""}</article>`;
   }).join("");
-  h=(isSeasoning?`<section class="dashboard-tools"><label>Alert threshold (good cartons)<input id="thr" type="number" min="0" value="${thr}"></label><button class="go" id="checkGoogleSheets" type="button">Check Google Sheets</button></section>`:"")+`<div class="section-heading"><h2>${isSeasoning?"Factory overview":user.factory+" dashboard"}</h2>${isSeasoning?'<span class="mu">All 4 plants</span>':""}</div><div class="grid ${isSeasoning?"factory-grid":""}">${factoryCards}</div>`+(!isSeasoning?`<h2>${user.factory==="OTA"?"Recent carton returns":"Trucks on the way back"}</h2>${rows("returns")}`:"");
+  h=(isSeasoning?`<section class="dashboard-tools"><label>Alert threshold (good cartons)<input id="thr" type="number" min="0" value="${thr}"></label><button class="go" id="checkSupabase" type="button">Check Supabase</button></section>`:"")+`<div class="section-heading"><h2>${isSeasoning?"Factory overview":user.factory+" dashboard"}</h2>${isSeasoning?'<span class="mu">All 4 plants</span>':""}</div><div class="grid ${isSeasoning?"factory-grid":""}">${factoryCards}</div>`+(!isSeasoning?`<h2>${user.factory==="OTA"?"Recent carton returns":"Trucks on the way back"}</h2>${rows("returns")}`:"");
  }else{
   const isSeasoningReturnTracking=user.role==="seasoning"&&tab==="Return trucks tracking";
   const canUpdate=!isSeasoningReturnTracking&&(user.role==="seasoning"||["shifts","returns"].includes(kind));
@@ -350,14 +350,14 @@ function render(){
    if(result.storageSync!=="synced")$("#msg").textContent=result.storageMessage;
   }catch(error){$("#msg").textContent="Settings update failed: "+error.message}
  };
- const sheetsButton=$("#checkGoogleSheets");if(sheetsButton)sheetsButton.onclick=async()=>{
-  sheetsButton.disabled=true;
+ const supabaseButton=$("#checkSupabase");if(supabaseButton)supabaseButton.onclick=async()=>{
+  supabaseButton.disabled=true;
   try{
-   const result=await api("POST",{action:"checkGoogleSheets"});
-   $("#msg").textContent=result.sheetsMessage;
+   const result=await api("POST",{action:"checkSupabase"});
+   $("#msg").textContent=result.message;
   }catch(error){
-   $("#msg").textContent="Google Sheets check failed: "+error.message;
-  }finally{sheetsButton.disabled=false}
+   $("#msg").textContent="Supabase check failed: "+error.message;
+  }finally{supabaseButton.disabled=false}
  };
  const fm=$("#frm");if(fm)fm.onsubmit=async e=>{
   e.preventDefault();

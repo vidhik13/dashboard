@@ -1,16 +1,13 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { Redis } from "@upstash/redis";
 import {
-  checkGoogleSheets,
-  importUpstashToSheets,
-  readSheetRecord,
-  readSheetRecords,
-  readSheetSettings,
-  removeSheetRecord,
-  writeSheetRecord,
-  writeSheetSettings,
-} from "./google-sheets-store.js";
-let redis;
+  checkSupabase,
+  readRecord,
+  readRecords,
+  readSettings,
+  removeRecord,
+  writeRecord,
+  writeSettings,
+} from "./supabase-store.js";
 const KINDS = ["dispatch", "shifts", "returns", "receipts"];
 const FACTORIES = ["OTA", "PHC", "KADUNA", "ABA"];
 const FACTORY_LINES = {
@@ -101,30 +98,10 @@ function isValidFactoryLine(factory, line) {
   return FACTORY_LINES[factory]?.includes(line) || false;
 }
 
-function getUpstashRedis() {
-  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-  if (!url || !token) throw new Error("Upstash credentials are not configured for data migration.");
-  if (!redis) redis = new Redis({ url, token });
-  return redis;
-}
-
-async function checkSheets() {
-  try {
-    await checkGoogleSheets();
-    return { status: "synced", message: "Google Sheets connection is working." };
-  } catch (error) {
-    return {
-      status: "failed",
-      message: error instanceof Error ? error.message : "Unknown Google Sheets error.",
-    };
-  }
-}
-
 async function readDashboardData() {
   const [dispatch, shifts, returns, receipts, settings] = await Promise.all([
-    ...KINDS.map(kind => readSheetRecords(kind)),
-    readSheetSettings(),
+    ...KINDS.map(kind => readRecords(kind)),
+    readSettings(),
   ]);
   return {
     dispatch: dispatch.map(normalizeFactoryRecord),
@@ -135,35 +112,10 @@ async function readDashboardData() {
   };
 }
 
-async function migrateUpstashToSheets() {
-  try {
-    const source = getUpstashRedis();
-    const [dispatch, shifts, returns, receipts, settings] = await Promise.all([
-      source.lrange("dispatch", 0, -1),
-      source.lrange("shifts", 0, -1),
-      source.lrange("returns", 0, -1),
-      source.lrange("receipts", 0, -1),
-      source.get("settings"),
-    ]);
-    return await importUpstashToSheets({
-      dispatch: (dispatch || []).map(normalizeFactoryRecord),
-      shifts: (shifts || []).map(normalizeFactoryRecord),
-      returns: (returns || []).map(normalizeFactoryRecord),
-      receipts: receipts || [],
-      settings: settings || null,
-    });
-  } catch (error) {
-    return {
-      status: "failed",
-      message: error instanceof Error ? error.message : "Unknown Upstash import error.",
-    };
-  }
-}
-
 function storageResult() {
   return {
     storageSync: "synced",
-    storageMessage: "Google Sheets saved.",
+    storageMessage: "Supabase saved.",
   };
 }
 
@@ -194,31 +146,10 @@ export default async function handler(req, res) {
   const user = readToken(req);
   if (!user) return res.status(401).send("Unauthorized");
 
-  if (req.method === "POST" && req.body?.action === "checkGoogleSheets") {
-    if (!isSeasoning(user)) return res.status(403).send("Only seasoning can check the Google Sheets connection");
-    const result = await checkSheets();
-    return res.status(200).json({
-      ok: result.status === "synced",
-      sheetsSync: result.status,
-      sheetsMessage: result.message,
-    });
-  }
-
-  if (req.method === "POST" && req.body?.action === "migrateUpstash") {
-    if (!isSeasoning(user)) return res.status(403).send("Only seasoning can import Upstash data");
-    const result = await migrateUpstashToSheets();
-    if (result.status !== "synced") {
-      return res.status(200).json({
-        ok: false,
-        migrationStatus: result.status,
-        migrationMessage: result.message,
-      });
-    }
-    return res.status(200).json({
-      ok: true,
-      migrationStatus: result.status,
-      migrationMessage: result.message,
-    });
+  if (req.method === "POST" && req.body?.action === "checkSupabase") {
+    if (!isSeasoning(user)) return res.status(403).send("Only Seasoning can check the database connection.");
+    await checkSupabase();
+    return res.status(200).json({ ok: true, message: "Supabase connection is working." });
   }
 
   if (req.method === "POST" && req.body?.action === "edit") {
@@ -230,7 +161,7 @@ export default async function handler(req, res) {
     if (!canManageKind(user, kind))
       return res.status(403).send("This account cannot edit that data");
 
-    const existing = await readSheetRecord(kind, id);
+    const existing = await readRecord(kind, id);
     if (!existing) return res.status(404).send("Record not found");
     if (!isSeasoning(user) && normalizeFactory(existing.f) !== user.factory)
       return res.status(403).send("This account cannot edit that record");
@@ -267,7 +198,7 @@ export default async function handler(req, res) {
     if (kind === "receipts") {
       if (typeof record.rid !== "string" || !record.rid)
         return res.status(400).send("Invalid return truck");
-      const returnRecord = await readSheetRecord("returns", record.rid);
+      const returnRecord = await readRecord("returns", record.rid);
       if (!returnRecord)
         return res.status(400).send("Return truck not found");
       if (!Number.isSafeInteger(returnRecord.qty) || returnRecord.qty < 0)
@@ -277,7 +208,7 @@ export default async function handler(req, res) {
       record.acc = returnRecord.qty - record.rej;
     }
 
-    await writeSheetRecord(kind, record);
+    await writeRecord(kind, record);
     return res.status(200).json({ ok: true, id, ...storageResult() });
   }
 
@@ -288,17 +219,17 @@ export default async function handler(req, res) {
     if (!canManageKind(user, kind))
       return res.status(403).send("This account cannot delete that data");
 
-    const record = await readSheetRecord(kind, id);
+    const record = await readRecord(kind, id);
     if (!record) return res.status(404).send("Record not found");
     if (!isSeasoning(user) && normalizeFactory(record.f) !== user.factory)
       return res.status(403).send("This account cannot delete that record");
     const receiptRecords = kind === "returns"
-      ? (await readSheetRecords("receipts")).filter(receipt => receipt.rid === id)
+      ? (await readRecords("receipts")).filter(receipt => receipt.rid === id)
       : [];
     if (kind === "returns") {
-      await Promise.all(receiptRecords.map(receipt => removeSheetRecord("receipts", receipt.id)));
+      await Promise.all(receiptRecords.map(receipt => removeRecord("receipts", receipt.id)));
     }
-    await removeSheetRecord(kind, id);
+    await removeRecord(kind, id);
     return res.status(200).json({ ok: true, ...storageResult() });
   }
 
@@ -332,11 +263,11 @@ export default async function handler(req, res) {
       if (!Number.isFinite(threshold) || threshold < 0)
         return res.status(400).send("Invalid threshold");
       const settings = { thr: threshold };
-      await writeSheetSettings(settings);
+      await writeSettings(settings);
       return res.status(200).json({
         ok: true,
         storageSync: "synced",
-        storageMessage: "Google Sheets saved.",
+        storageMessage: "Supabase saved.",
       });
     }
 
@@ -379,7 +310,7 @@ export default async function handler(req, res) {
     if (kind === "receipts") {
       if (typeof record.rid !== "string" || !record.rid)
         return res.status(400).send("Invalid return truck");
-      const returnRecord = await readSheetRecord("returns", record.rid);
+      const returnRecord = await readRecord("returns", record.rid);
       if (!returnRecord)
         return res.status(400).send("Return truck not found");
       if (!Number.isSafeInteger(returnRecord.qty) || returnRecord.qty < 0)
@@ -391,7 +322,7 @@ export default async function handler(req, res) {
 
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const savedRecord = { ...record, id };
-    await writeSheetRecord(kind, savedRecord);
+    await writeRecord(kind, savedRecord);
     return res.status(200).json({ ok: true, id, ...storageResult() });
   }
 
