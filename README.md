@@ -17,7 +17,7 @@ for dispatches, shifts, returns, receipts, and settings.
    `AUTH_PASSWORD_KADUNA`, `AUTH_PASSWORD_OTA`, `AUTH_PASSWORD_PHC`, and
    `AUTH_PASSWORD_SEASONING` variables configured in Vercel.
 6. Apply variables to Production (and Preview if needed), redeploy, then sign
-   in as Seasoning and choose **Check Supabase**.
+   in as Seasoning and verify that the dashboard loads.
 
 This uses a fresh Supabase database. Existing Google Sheets and legacy Upstash
 records are not copied automatically; keep the Google Sheet as a backup until

@@ -115,13 +115,7 @@ let D={dispatch:[],shifts:[],returns:[],receipts:[]},tab="Dashboard",user=null,t
 let selectedFactory=F[0];
 const $=s=>document.querySelector(s);
 const sum=(a,k)=>a.reduce((s,x)=>s+(+x[k]||0),0);
-const storageMessage=(result,action)=>{
- const messages=[`${action}.`];
- if(result.storageSync==="synced")messages.push("Saved to Supabase.");
- else if(result.storageSync==="failed"||result.storageSync==="not_configured")messages.push(result.storageMessage);
- else messages.push("Supabase save status could not be confirmed.");
- return messages.join(" ");
-};
+const storageMessage=action=>`${action}.`;
 const now=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);
 const escapeHTML=t=>String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=t=>t?escapeHTML(String(t).replace("T"," ")):"";
@@ -199,6 +193,7 @@ function truckEtaSummary(factory){
 }
 const field=(id,l,t="text",ex="")=>`<label>${l}<input id="${id}" type="${t}" ${ex}></label>`;
 const truckNumberField=()=>field("f_truck","Truck no","text",'autocapitalize="characters" autocomplete="off" spellcheck="false" pattern="[A-Za-z0-9]*"');
+const phoneNumberField=()=>field("f_ph","Driver phone","text",'inputmode="numeric" pattern="[0-9]*" autocomplete="off"');
 const wholeNumberField=(id,label,required=false)=>field(id,label,"text",`inputmode="numeric" pattern="[0-9]*" autocomplete="off"${required?" required":""}`);
 const waybillField=()=>wholeNumberField("f_wb","Waybill no");
 const calculatedNumberField=(id,label)=>field(id,label,"text",'inputmode="numeric" readonly');
@@ -210,10 +205,10 @@ function formHTML(kind){
   if(isOtaForm)return factoryField()+field("f_dt","Date & time","datetime-local",`value="${now()}" required`)+field("f_qty","Cartons sent","number","min=\"0\" step=\"1\" required")+`<button class="go">Log dispatch</button>`;
   return field("f_dt","Date & time","datetime-local",`value="${now()}"`)+factoryField()+truckNumberField()+waybillField()+field("f_qty","Cartons sent","number")+field("f_eta","ETA","datetime-local")+`<button class="go">Log dispatch</button>`;
  }
- if(kind==="shifts")return field("f_date","Date","date",`value="${now().slice(0,10)}"`)+factoryField()+lineSelectField(formFactory)+`<label>Shift<select id="f_sh"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>`+wholeNumberField("f_used","Total cartons consumed",true)+wholeNumberField("f_good","Good cartons",true)+wholeNumberField("f_bad","Bad cartons",true)+`<div class="mu" style="grid-column:1/-1">Enter Total, then either Good or Bad. The other is calculated automatically: Bad = Total - Good, or Good = Total - Bad.</div><button class="go">Save shift</button>`;
+ if(kind==="shifts")return field("f_date","Date","date",`value="${now().slice(0,10)}"`)+factoryField()+lineSelectField(formFactory)+`<label>Shift<select id="f_sh"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>`+wholeNumberField("f_used","Total cartons consumed",true)+wholeNumberField("f_good","Good cartons",true)+wholeNumberField("f_bad","Bad cartons",true)+`<button class="go">Save shift</button>`;
  if(kind==="returns"){
   if(isOtaForm)return factoryField()+field("f_dt","Date & time","datetime-local",`value="${now()}" required`)+field("f_qty","Cartons returned","number","min=\"0\" step=\"1\" required")+`<button class="go">Log return</button>`;
-  return factoryField()+truckNumberField()+field("f_driver","Driver name")+field("f_ph","Driver phone")+waybillField()+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
+  return factoryField()+truckNumberField()+field("f_driver","Driver name")+phoneNumberField()+waybillField()+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
  }
  if(kind==="receipts"){const current=editing?.kind==="receipts"?D.receipts.find(x=>x.id===editing.id):null;const o=D.returns.filter(x=>!D.receipts.some(c=>c.rid===x.id)||x.id===current?.rid).map(x=>`<option value="${escapeHTML(x.id)}">${escapeHTML(x.f)} | ${escapeHTML(x.truck)} | ${escapeHTML(x.wb)} | ${escapeHTML(x.qty)}</option>`).join("");
   return `<label>Truck arrived<select id="f_rid">${o}</select></label>`+calculatedNumberField("f_acc","Accepted cartons (calculated)")+wholeNumberField("f_rej","Rejected")+field("f_dt","Received","datetime-local",`value="${now()}"`)+`<button class="go">Save sorting</button>`}
@@ -268,7 +263,7 @@ function render(){
    const transit=ota?`<div class="factory-metric"><span>Cartons in transit</span><strong>${s.transit.toLocaleString()}</strong></div>`:`<div class="factory-metric"><span>Trucks in transit</span><strong>${s.trucksInTransit.toLocaleString()}</strong><small>${s.transit.toLocaleString()} cartons</small></div>`;
    return `<article class="card factory-card ${al?"alert":""}"><div class="factory-card-head"><strong>${f}</strong>${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}</div>${returnRateSummary(s)}<div class="factory-total"><span class="mu">Good cartons waiting to return</span><strong>${s.pile.toLocaleString()}</strong></div><h3 class="factory-metrics-heading">Carton flow · all time</h3><div class="factory-metrics"><div class="factory-metric"><span>Cartons sent</span><strong>${s.sent.toLocaleString()}</strong></div><div class="factory-metric"><span>Cartons used</span><strong>${s.used.toLocaleString()}</strong></div><div class="factory-metric"><span>Bad cartons</span><strong>${s.bad.toLocaleString()}</strong></div><div class="factory-metric"><span>Cartons returned</span><strong>${s.returned.toLocaleString()}</strong></div>${transit}</div>${acceptanceSummary(s)}${isSeasoning?truckEtaSummary(f):""}</article>`;
   }).join("");
-  h=(isSeasoning?`<section class="dashboard-tools"><label>Alert threshold (good cartons)<input id="thr" type="number" min="0" value="${thr}"></label><button class="go" id="checkSupabase" type="button">Check Supabase</button></section>`:"")+`<div class="section-heading"><h2>${isSeasoning?"Factory overview":user.factory+" dashboard"}</h2>${isSeasoning?'<span class="mu">All 4 plants</span>':""}</div><div class="grid ${isSeasoning?"factory-grid":""}">${factoryCards}</div>`+(!isSeasoning?`<h2>${user.factory==="OTA"?"Recent carton returns":"Trucks on the way back"}</h2>${rows("returns")}`:"");
+  h=(isSeasoning?`<section class="dashboard-tools"><label>Alert threshold (good cartons)<input id="thr" type="number" min="0" value="${thr}"></label></section>`:"")+`<div class="section-heading"><h2>${isSeasoning?"Factory overview":user.factory+" dashboard"}</h2>${isSeasoning?'<span class="mu">All 4 plants</span>':""}</div><div class="grid ${isSeasoning?"factory-grid":""}">${factoryCards}</div>`+(!isSeasoning?`<h2>${user.factory==="OTA"?"Recent carton returns":"Trucks on the way back"}</h2>${rows("returns")}`:"");
  }else{
   const isSeasoningReturnTracking=user.role==="seasoning"&&tab==="Return trucks tracking";
   const canUpdate=!isSeasoningReturnTracking&&(user.role==="seasoning"||["shifts","returns"].includes(kind));
@@ -282,7 +277,7 @@ function render(){
   render();
   for(const [id,value] of Object.entries(values)){const input=$("#"+id);if(input)input.value=value}
  };
- for(const input of $("#view").querySelectorAll("#f_good,#f_bad,#f_rej,#f_wb,#f_used")){
+ for(const input of $("#view").querySelectorAll("#f_good,#f_bad,#f_rej,#f_wb,#f_used,#f_ph")){
   input.onbeforeinput=event=>{
    if(event.inputType==="insertText"&&event.data&&/\D/.test(event.data))event.preventDefault();
   };
@@ -346,27 +341,17 @@ function render(){
  const t=$("#thr");if(t)t.onchange=async()=>{
   thr=+t.value||0;render();
   try{
-   const result=await api("POST",{kind:"settings",rec:{thr}});
-   if(result.storageSync!=="synced")$("#msg").textContent=result.storageMessage;
+   await api("POST",{kind:"settings",rec:{thr}});
   }catch(error){$("#msg").textContent="Settings update failed: "+error.message}
- };
- const supabaseButton=$("#checkSupabase");if(supabaseButton)supabaseButton.onclick=async()=>{
-  supabaseButton.disabled=true;
-  try{
-   const result=await api("POST",{action:"checkSupabase"});
-   $("#msg").textContent=result.message;
-  }catch(error){
-   $("#msg").textContent="Supabase check failed: "+error.message;
-  }finally{supabaseButton.disabled=false}
  };
  const fm=$("#frm");if(fm)fm.onsubmit=async e=>{
   e.preventDefault();
   const currentEdit=editing?.kind===kind?editing:null;
   try{
-   const result=await api("POST",currentEdit?{action:"edit",kind,id:currentEdit.id,rec:rec(kind)}:{kind,rec:rec(kind)});
+   await api("POST",currentEdit?{action:"edit",kind,id:currentEdit.id,rec:rec(kind)}:{kind,rec:rec(kind)});
    editing=null;
    await load();
-   $("#msg").textContent=storageMessage(result,currentEdit?"Log updated":"Log saved");
+   $("#msg").textContent=storageMessage(currentEdit?"Log updated":"Log saved");
   }catch(x){$("#msg").textContent=(currentEdit?"Edit":"Save")+" failed: "+x.message}
  };
  const cancelEdit=$("#cancelEdit");if(cancelEdit)cancelEdit.onclick=()=>{editing=null;render()};
@@ -385,10 +370,10 @@ function render(){
   if(!window.confirm(`Delete this ${kind==="shifts"?"shift":kind==="returns"?"return truck":kind==="receipts"?"sorting":"dispatch"} log? This cannot be undone.${detail}`))return;
   button.disabled=true;
   try{
-   const result=await api("POST",{action:"delete",kind,id});
+   await api("POST",{action:"delete",kind,id});
    editing=null;
    await load();
-   $("#msg").textContent=storageMessage(result,"Log deleted");
+   $("#msg").textContent=storageMessage("Log deleted");
   }catch(error){
    $("#msg").textContent="Delete failed: "+error.message;
    button.disabled=false;

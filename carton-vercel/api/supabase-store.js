@@ -104,9 +104,3 @@ export async function writeSettings(settings) {
     body: JSON.stringify([{ id: 1, data: settings }]),
   });
 }
-
-export async function checkSupabase() {
-  const query = new URLSearchParams({ select: "id", limit: "1" });
-  await request(`carton_records?${query}`);
-  await request("carton_settings?select=id&limit=1");
-}

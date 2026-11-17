@@ -1,6 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import {
-  checkSupabase,
   readRecord,
   readRecords,
   readSettings,
@@ -112,13 +111,6 @@ async function readDashboardData() {
   };
 }
 
-function storageResult() {
-  return {
-    storageSync: "synced",
-    storageMessage: "Supabase saved.",
-  };
-}
-
 export async function excelExportHandler(req, res) {
   if (req.method !== "GET") return res.status(405).send("Method not allowed");
   const exportToken = process.env.EXCEL_EXPORT_TOKEN;
@@ -162,12 +154,6 @@ export default async function handler(req, res) {
   const user = readToken(req);
   if (!user) return res.status(401).send("Unauthorized");
 
-  if (req.method === "POST" && req.body?.action === "checkSupabase") {
-    if (!isSeasoning(user)) return res.status(403).send("Only Seasoning can check the database connection.");
-    await checkSupabase();
-    return res.status(200).json({ ok: true, message: "Supabase connection is working." });
-  }
-
   if (req.method === "POST" && req.body?.action === "edit") {
     const { kind, id, rec } = req.body;
     if (!KINDS.includes(kind)) return res.status(400).send("Bad kind");
@@ -195,6 +181,8 @@ export default async function handler(req, res) {
       record.truck = record.truck.toUpperCase();
       if (typeof record.wb !== "string" || !/^\d*$/.test(record.wb))
         return res.status(400).send("Waybill number must contain digits only");
+      if (kind === "returns" && (typeof record.ph !== "string" || !/^\d*$/.test(record.ph)))
+        return res.status(400).send("Driver phone must contain digits only");
     }
     if (kind === "shifts") {
       if (!Number.isSafeInteger(record.line) || !isValidFactoryLine(record.f, record.line))
@@ -225,7 +213,7 @@ export default async function handler(req, res) {
     }
 
     await writeRecord(kind, record);
-    return res.status(200).json({ ok: true, id, ...storageResult() });
+    return res.status(200).json({ ok: true, id });
   }
 
   if (req.method === "POST" && req.body?.action === "delete") {
@@ -246,7 +234,7 @@ export default async function handler(req, res) {
       await Promise.all(receiptRecords.map(receipt => removeRecord("receipts", receipt.id)));
     }
     await removeRecord(kind, id);
-    return res.status(200).json({ ok: true, ...storageResult() });
+    return res.status(200).json({ ok: true });
   }
 
   if (req.method === "GET") {
@@ -280,11 +268,7 @@ export default async function handler(req, res) {
         return res.status(400).send("Invalid threshold");
       const settings = { thr: threshold };
       await writeSettings(settings);
-      return res.status(200).json({
-        ok: true,
-        storageSync: "synced",
-        storageMessage: "Supabase saved.",
-      });
+      return res.status(200).json({ ok: true });
     }
 
     if (!KINDS.includes(kind)) return res.status(400).send("Bad kind");
@@ -307,6 +291,8 @@ export default async function handler(req, res) {
       record.truck = record.truck.toUpperCase();
       if (typeof record.wb !== "string" || !/^\d*$/.test(record.wb))
         return res.status(400).send("Waybill number must contain digits only");
+      if (kind === "returns" && (typeof record.ph !== "string" || !/^\d*$/.test(record.ph)))
+        return res.status(400).send("Driver phone must contain digits only");
     }
     if (kind === "shifts") {
       if (!Number.isSafeInteger(record.line) || !isValidFactoryLine(record.f, record.line))
@@ -339,7 +325,7 @@ export default async function handler(req, res) {
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const savedRecord = { ...record, id };
     await writeRecord(kind, savedRecord);
-    return res.status(200).json({ ok: true, id, ...storageResult() });
+    return res.status(200).json({ ok: true, id });
   }
 
   return res.status(405).send("Method not allowed");
