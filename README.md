@@ -58,9 +58,12 @@ in
 ```
 
 Name the query, choose **Close & Load**, and repeat for the other three kinds.
-Use **Data → Refresh All** to fetch current rows. This is a refreshable snapshot,
-not an instant live connection. Excel Desktop supports Power Query refresh;
-Excel for the web support depends on the tenant and connector capabilities.
+In Excel Desktop, open **Data → Queries & Connections**, right-click each query,
+choose **Properties → Usage**, and enable **Refresh data when opening the file**
+to refresh automatically whenever the workbook opens. Use **Data → Refresh All**
+to fetch current rows manually. This is a refreshable snapshot, not an instant
+live connection. Excel for the web support depends on the tenant and connector
+capabilities.
 Test refresh in the client your team will use. The query contains the export
 token, so only share the workbook with trusted users; the response includes
 dispatch, return, and receipt details such as driver names and phone numbers.
