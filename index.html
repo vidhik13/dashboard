@@ -174,6 +174,7 @@ const escapeHTML=t=>String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">"
 const fmt=t=>t?escapeHTML(String(t).replace(/^(\d{4}-\d{2}-\d{2})T/,"$1 ")):"";
 let editing=null;
 const FACTORY_LINE_OPTIONS={OTA:[1,2,3,4,5,6],PHC:[1,2,3,4,5,6,7,8,9],KADUNA:[1,2,3,4,5,6]};
+const FACTORY_SHIFT_OPTIONS={OTA:[1,2],PHC:[1,2,3],KADUNA:[1,2]};
 const SORTER_OPTIONS={OTA:["Kingsley","Ayo"],PHC:["Jollof","Chicken","Onion"],KADUNA:["Innocent","Anthony"]};
 const factoryField=()=>user.role==="seasoning"?`<label>Factory<select id="f_f">${F.map(f=>`<option${f===selectedFactory?" selected":""}>${f}</option>`).join("")}</select></label>`:`<input id="f_f" type="hidden" value="${user.factory}">`;
 const lineSelectField=(factory=selectedFactory,currentValue="",disabled=false)=>{
@@ -272,6 +273,7 @@ function formHTML(kind){
   if(user.role==="noodle"&&!existingShift){
    const waiting=D.shifts.filter(record=>
     record.f===user.factory
+    &&FACTORY_SHIFT_OPTIONS[user.factory].includes(Number(record.sh))
     &&(record.used===undefined||record.used===null)
     &&Number.isSafeInteger(record.good)&&Number.isSafeInteger(record.bad),
    );
@@ -283,7 +285,10 @@ function formHTML(kind){
    return `<label>Sorter shift and line<select id="f_shift_record" required><option value="">Select shift</option>${options}</select></label>`+wholeNumberField("f_used","Total cartons consumed",true)+`<button class="go">Save shift total</button>`;
   }
   const locked=Boolean(existingShift);
-  const identity=field("f_date","Date","date",`value="${now().slice(0,10)}" required${locked?" readonly":""}`)+factoryField()+lineSelectField(formFactory,existingShift?.line||"",locked)+`<label>Shift<select id="f_sh"${locked?" disabled":""}><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>`;
+  const shiftOptions=[...(FACTORY_SHIFT_OPTIONS[formFactory]||[])];
+  if(existingShift&&!shiftOptions.includes(Number(existingShift.sh)))shiftOptions.unshift(Number(existingShift.sh));
+  const shiftChoices=shiftOptions.map(shift=>`<option value="${shift}"${existingShift&&String(existingShift.sh)===String(shift)?" selected":""}>${shift}</option>`).join("");
+  const identity=field("f_date","Date","date",`value="${now().slice(0,10)}" required${locked?" readonly":""}`)+factoryField()+lineSelectField(formFactory,existingShift?.line||"",locked)+`<label>Shift<select id="f_sh"${locked?" disabled":""}>${shiftChoices}</select></label>`;
   const sorterField=()=>{
    const options=SORTER_OPTIONS[formFactory];
    if(!options)return field("f_sorter","Sorting team member","text",'autocomplete="name" maxlength="100" required');

@@ -14,6 +14,11 @@ const FACTORY_LINES = {
   PHC: [1, 2, 3, 4, 5, 6, 7, 8, 9],
   KADUNA: [1, 2, 3, 4, 5, 6],
 };
+const FACTORY_SHIFTS = {
+  OTA: [1, 2],
+  PHC: [1, 2, 3],
+  KADUNA: [1, 2],
+};
 const SORTER_NAMES = {
   OTA: ["Kingsley", "Ayo"],
   PHC: ["Jollof", "Chicken", "Onion"],
@@ -89,13 +94,20 @@ function isValidShiftDate(date) {
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
 }
 
-function validateShiftIdentity(record) {
+function validateShiftIdentity(record, existing = null) {
   if (!isValidShiftDate(record.date))
     throw new InputError("Shift date must be a valid calendar date");
   if (!Number.isSafeInteger(record.line) || !isValidFactoryLine(record.f, record.line))
     throw new InputError(`Invalid line for ${record.f}`);
-  if (!["1", "2", "3"].includes(String(record.sh)))
-    throw new InputError("Shift must be 1, 2, or 3");
+  const allowedShifts = FACTORY_SHIFTS[record.f];
+  const shift = String(record.sh);
+  const retainsExistingShift = existing
+    && normalizeFactory(existing.f) === record.f
+    && existing.date === record.date
+    && existing.line === record.line
+    && String(existing.sh) === shift;
+  if (!allowedShifts?.some(value => String(value) === shift) && !retainsExistingShift)
+    throw new InputError(`Shift must be ${allowedShifts.join(" or ")}`);
   record.sh = String(record.sh);
 }
 
@@ -156,7 +168,7 @@ async function buildShiftRecord(user, input, existing = null) {
     record.bad = input.bad;
   }
 
-  validateShiftIdentity(record);
+  validateShiftIdentity(record, existing);
   const requiredValues = user.role === "sorting"
     ? ["good", "bad"]
     : user.role === "noodle" ? ["used"] : ["used", "good", "bad"];
