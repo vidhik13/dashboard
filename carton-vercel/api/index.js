@@ -82,7 +82,7 @@ function clearOtaTransportDetails(record, kind) {
 
 function normalizeFactory(factory) {
   if (typeof factory !== "string") return factory;
-  const normalized = factory.trim().toUpperCase();
+  const normalized = factory.replace(/\s+/g, "").toUpperCase();
   return normalized === "OA" ? "OTA" : normalized;
 }
 
