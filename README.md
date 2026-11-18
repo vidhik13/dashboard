@@ -13,9 +13,11 @@ for dispatches, shifts, returns, receipts, and settings.
 4. In Vercel **Settings → Environment Variables**, add:
    - `SUPABASE_URL`: the Supabase project URL.
    - `SUPABASE_SERVICE_ROLE_KEY`: the project’s `service_role` key.
-5. Keep `AUTH_SECRET` and the separate `AUTH_PASSWORD_KADUNA`,
-   `AUTH_PASSWORD_OTA`, `AUTH_PASSWORD_PHC`, and
-   `AUTH_PASSWORD_SEASONING` variables configured in Vercel.
+5. Keep `AUTH_SECRET` and the existing warehouse/Seasoning password variables
+   `AUTH_PASSWORD_KADUNA`, `AUTH_PASSWORD_OTA`, `AUTH_PASSWORD_PHC`, and
+   `AUTH_PASSWORD_SEASONING` configured in Vercel. Set `AUTH_PASSWORD_SORTING`
+   to the shared Sorting Team password in Vercel. Do not put passwords in the
+   repository.
 6. Apply variables to Production (and Preview if needed), redeploy, then sign
    in as Seasoning and verify that the dashboard loads.
 
@@ -76,11 +78,20 @@ The database stores records in `carton_records` and the alert threshold in
 `carton_settings`. Shift lines are limited by factory: OTA 1–6, PHC 1–9, and
 KADUNA 1–6. Shift numbers are 1, 2, and 3.
 
-Factory accounts can access their own records. Seasoning can manage all
-factories. Seasoning records monthly dispatched carton totals by factory
-without truck or waybill details. OTA dispatch and return forms omit truck,
-driver, and waybill details; OTA can view dispatch entries, while Seasoning
-manages dispatches.
+WAREHOUSE accounts use the existing factory passwords and retain their
+current website access. They enter only total cartons consumed on the shift
+log. SORTING TEAM members select their factory and team at login; the shared
+Sorting Team password grants access only to the shift log, where they enter
+their name and Good/Bad counts. Sorting Team members cannot view Total. Both
+teams' entries are paired by factory, date, line, and shift. The shift is
+included in dashboard totals only after all three carton values are present;
+once both teams have entered their values, Good + Bad must equal Total.
+
+Seasoning retains one login and its existing dashboard, can manage all
+factories, and records monthly dispatched carton totals by factory without
+truck or waybill details. OTA dispatch and return forms omit truck, driver,
+and waybill details; OTA can view dispatch entries, while Seasoning manages
+dispatches.
 The dashboard shows return totals and rates and carton acceptance MTD/YTD.
 Sessions expire after eight hours. To change a password, update the matching
 `AUTH_PASSWORD_*` value in Vercel and redeploy.

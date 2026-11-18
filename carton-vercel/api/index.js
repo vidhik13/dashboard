@@ -15,6 +15,8 @@ const FACTORY_LINES = {
   KADUNA: [1, 2, 3, 4, 5, 6],
 };
 
+class InputError extends Error {}
+
 function safeEqual(a, b) {
   return timingSafeEqual(
     createHash("sha256").update(String(a)).digest(),
@@ -50,6 +52,8 @@ function readToken(req) {
       return { username: user.username, role: user.role };
     if (user.role === "noodle" && FACTORIES.includes(user.factory))
       return { username: user.username, role: user.role, factory: user.factory };
+    if (user.role === "sorting" && FACTORIES.includes(user.factory))
+      return { username: user.username, role: user.role, factory: user.factory };
     return null;
   } catch {
     return null;
@@ -62,7 +66,90 @@ function isSeasoning(user) {
 
 function canManageKind(user, kind) {
   return isSeasoning(user)
-    || ["shifts", "returns"].includes(kind);
+    || (user.role === "noodle" && ["shifts", "returns"].includes(kind))
+    || (user.role === "sorting" && kind === "shifts");
+}
+
+function isValidShiftDate(date) {
+  if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
+}
+
+function validateShiftIdentity(record) {
+  if (!isValidShiftDate(record.date))
+    throw new InputError("Shift date must be a valid calendar date");
+  if (!Number.isSafeInteger(record.line) || !isValidFactoryLine(record.f, record.line))
+    throw new InputError(`Invalid line for ${record.f}`);
+  if (!["1", "2", "3"].includes(String(record.sh)))
+    throw new InputError("Shift must be 1, 2, or 3");
+  record.sh = String(record.sh);
+}
+
+function validateShiftValues(record) {
+  const hasUsed = Number.isSafeInteger(record.used) && record.used >= 0;
+  const hasGood = Number.isSafeInteger(record.good) && record.good >= 0;
+  const hasBad = Number.isSafeInteger(record.bad) && record.bad >= 0;
+  if (record.used !== undefined && !hasUsed)
+    throw new InputError("Total cartons consumed must be a whole number greater than or equal to zero");
+  if (record.good !== undefined && !hasGood)
+    throw new InputError("Good cartons must be a whole number greater than or equal to zero");
+  if (record.bad !== undefined && !hasBad)
+    throw new InputError("Bad cartons must be a whole number greater than or equal to zero");
+  if (hasUsed && hasGood && hasBad && record.good + record.bad !== record.used)
+    throw new InputError("Good and bad cartons do not match the total consumed for this shift");
+}
+
+async function buildShiftRecord(user, input, existing = null) {
+  const factory = isSeasoning(user) ? normalizeFactory(input.f) : user.factory;
+  if (!FACTORIES.includes(factory)) throw new InputError("Invalid factory");
+
+  const identity = {
+    f: factory,
+    date: isSeasoning(user) || !existing ? input.date : existing.date,
+    line: isSeasoning(user) || !existing ? input.line : existing.line,
+    sh: isSeasoning(user) || !existing ? input.sh : existing.sh,
+  };
+  const records = existing ? [] : await readRecords("shifts");
+  const matchingRecord = existing || records.find(record =>
+    normalizeFactory(record.f) === factory
+    && record.date === identity.date
+    && record.line === identity.line
+    && String(record.sh) === String(identity.sh),
+  );
+  const record = {
+    ...(matchingRecord || {}),
+    ...identity,
+    id: matchingRecord?.id
+      || `${factory}-${identity.date}-L${identity.line}-S${identity.sh}`,
+  };
+
+  if (user.role === "sorting") {
+    record.good = input.good;
+    record.bad = input.bad;
+    record.sorter = typeof input.sorter === "string" ? input.sorter.trim() : "";
+    if (!record.sorter || record.sorter.length > 100)
+      throw new InputError("Enter the sorting team member's name (up to 100 characters)");
+  } else if (user.role === "noodle") {
+    record.used = input.used;
+  } else {
+    record.used = input.used;
+    record.good = input.good;
+    record.bad = input.bad;
+  }
+
+  validateShiftIdentity(record);
+  const requiredValues = user.role === "sorting"
+    ? ["good", "bad"]
+    : user.role === "noodle" ? ["used"] : ["used", "good", "bad"];
+  if (!hasNonNegativeIntegers(record, requiredValues)) {
+    const labels = requiredValues.map(field =>
+      field === "used" ? "total consumed" : `${field} cartons`,
+    );
+    throw new InputError(`${labels.join(", ")} must be whole numbers greater than or equal to zero`);
+  }
+  validateShiftValues(record);
+  return record;
 }
 
 function isOtaSimpleTransport(user, kind, factory = user.factory) {
@@ -149,21 +236,26 @@ export default async function handler(req, res) {
       return res.status(500).send("AUTH_SECRET is not configured");
 
     const plant = String(req.body.plant || "");
+    const team = String(req.body.team || "warehouse");
     const password = String(req.body.password || "");
     if (!password) return res.status(400).send("Select a plant and enter its password.");
     if (plant !== "SEASONING" && !FACTORIES.includes(plant))
       return res.status(400).send("Select a valid plant.");
-    const passwordVariable = plant === "SEASONING"
-      ? "AUTH_PASSWORD_SEASONING"
-      : `AUTH_PASSWORD_${plant}`;
+    if (!["warehouse", "sorting"].includes(team) || (plant === "SEASONING" && team !== "warehouse"))
+      return res.status(400).send("Select a valid team for this plant.");
+    const passwordVariable = team === "sorting"
+      ? "AUTH_PASSWORD_SORTING"
+      : plant === "SEASONING" ? "AUTH_PASSWORD_SEASONING" : `AUTH_PASSWORD_${plant}`;
     const expectedPassword = process.env[passwordVariable];
     if (!expectedPassword)
-      return res.status(500).send(`Login is not configured for ${plant}.`);
+      return res.status(500).send(`Login is not configured for ${plant} ${team.toUpperCase()}.`);
     if (!safeEqual(password, expectedPassword))
       return res.status(401).send("Incorrect plant or password.");
     const user = plant === "SEASONING"
       ? { username: "seasoning", role: "seasoning" }
-      : { username: plant.toLowerCase(), role: "noodle", factory: plant };
+      : team === "sorting"
+        ? { username: `${plant.toLowerCase()}-sorting`, role: "sorting", factory: plant }
+        : { username: plant.toLowerCase(), role: "noodle", factory: plant };
     return res.status(200).json({ token: createToken(user), user });
   }
 
@@ -183,6 +275,16 @@ export default async function handler(req, res) {
     if (!existing) return res.status(404).send("Record not found");
     if (!isSeasoning(user) && normalizeFactory(existing.f) !== user.factory)
       return res.status(403).send("This account cannot edit that record");
+    if (kind === "shifts") {
+      try {
+        const record = await buildShiftRecord(user, rec, existing);
+        await writeRecord(kind, record);
+        return res.status(200).json({ ok: true, id });
+      } catch (error) {
+        if (!(error instanceof InputError)) throw error;
+        return res.status(400).send(error.message);
+      }
+    }
     const record = { ...rec, id };
     if (["dispatch", "shifts", "returns"].includes(kind)) {
       if (isSeasoning(user) && !FACTORIES.includes(record.f))
@@ -211,17 +313,6 @@ export default async function handler(req, res) {
       if (kind === "returns" && (typeof record.driver !== "string" || /[0-9]/.test(record.driver)))
         return res.status(400).send("Driver name must not contain numbers");
     }
-    if (kind === "shifts") {
-      if (!Number.isSafeInteger(record.line) || !isValidFactoryLine(record.f, record.line))
-        return res.status(400).send(`Invalid line for ${record.f}`);
-      if (!["1", "2", "3"].includes(String(record.sh)))
-        return res.status(400).send("Shift must be 1, 2, or 3");
-      record.sh = String(record.sh);
-      if (!hasNonNegativeIntegers(record, ["used", "good", "bad"]))
-        return res.status(400).send("Total, good, and bad cartons must be whole numbers greater than or equal to zero");
-      if (record.good + record.bad !== record.used)
-        return res.status(400).send("Good cartons plus bad cartons must equal total cartons consumed");
-    }
     if (kind === "returns" && !hasNonNegativeIntegers(record, ["qty"]))
       return res.status(400).send("Return truck cartons must be a whole number greater than or equal to zero");
     if (kind === "receipts" && !hasNonNegativeIntegers(record, ["rej"]))
@@ -249,6 +340,8 @@ export default async function handler(req, res) {
     if (typeof id !== "string" || !id) return res.status(400).send("Invalid record id");
     if (!canManageKind(user, kind))
       return res.status(403).send("This account cannot delete that data");
+    if (kind === "shifts" && !isSeasoning(user))
+      return res.status(403).send("Only Seasoning can delete shift records");
 
     const record = await readRecord(kind, id);
     if (!record) return res.status(404).send("Record not found");
@@ -274,11 +367,16 @@ export default async function handler(req, res) {
       : normalizedReturns.filter(record => record.f === user.factory);
     const visibleReturnIds = new Set(visibleReturns.map(record => record.id));
 
+    const sortingShifts = normalizedShifts
+      .filter(record => record.f === user.factory)
+      .map(({ used, ...record }) => record);
     return res.status(200).json({
-      dispatch: normalizedDispatch.filter(record => isSeasoning(user) || record.f === user.factory),
-      shifts: normalizedShifts.filter(record => isSeasoning(user) || record.f === user.factory),
-      returns: visibleReturns,
-      receipts: receipts.filter(record =>
+      dispatch: user.role === "sorting" ? [] : normalizedDispatch.filter(record => isSeasoning(user) || record.f === user.factory),
+      shifts: user.role === "sorting"
+        ? sortingShifts
+        : normalizedShifts.filter(record => isSeasoning(user) || record.f === user.factory),
+      returns: user.role === "sorting" ? [] : visibleReturns,
+      receipts: user.role === "sorting" ? [] : receipts.filter(record =>
         isSeasoning(user) || visibleReturnIds.has(record.rid),
       ),
       settings: isSeasoning(user) ? settings || {} : {},
@@ -303,6 +401,17 @@ export default async function handler(req, res) {
       return res.status(400).send("Invalid record");
     if (!canManageKind(user, kind))
       return res.status(403).send("This account cannot update that data");
+
+    if (kind === "shifts") {
+      try {
+        const record = await buildShiftRecord(user, rec);
+        await writeRecord(kind, record);
+        return res.status(200).json({ ok: true, id: record.id });
+      } catch (error) {
+        if (!(error instanceof InputError)) throw error;
+        return res.status(400).send(error.message);
+      }
+    }
 
     const record = { ...rec };
     if (["dispatch", "shifts", "returns"].includes(kind)) {
@@ -331,17 +440,6 @@ export default async function handler(req, res) {
         return res.status(400).send("Driver phone must contain digits only");
       if (kind === "returns" && (typeof record.driver !== "string" || /[0-9]/.test(record.driver)))
         return res.status(400).send("Driver name must not contain numbers");
-    }
-    if (kind === "shifts") {
-      if (!Number.isSafeInteger(record.line) || !isValidFactoryLine(record.f, record.line))
-        return res.status(400).send(`Invalid line for ${record.f}`);
-      if (!["1", "2", "3"].includes(String(record.sh)))
-        return res.status(400).send("Shift must be 1, 2, or 3");
-      record.sh = String(record.sh);
-      if (!hasNonNegativeIntegers(record, ["used", "good", "bad"]))
-        return res.status(400).send("Total, good, and bad cartons must be whole numbers greater than or equal to zero");
-      if (record.good + record.bad !== record.used)
-        return res.status(400).send("Good cartons plus bad cartons must equal total cartons consumed");
     }
     if (kind === "returns" && !hasNonNegativeIntegers(record, ["qty"]))
       return res.status(400).send("Return truck cartons must be a whole number greater than or equal to zero");
