@@ -15,6 +15,7 @@ const FACTORY_LINES = {
   KADUNA: [1, 2, 3, 4, 5, 6],
 };
 const SORTER_NAMES = {
+  OTA: ["Kingsley", "Ayo"],
   PHC: ["Jollof", "Chicken", "Onion"],
   KADUNA: ["Innocent", "Anthony"],
 };
@@ -62,6 +63,12 @@ function readToken(req) {
   } catch {
     return null;
   }
+}
+
+function clearOtaReturnDetails(record) {
+  record.truck = "";
+  record.ph = "";
+  record.wb = "";
 }
 
 function isSeasoning(user) {
@@ -163,6 +170,11 @@ async function buildShiftRecord(user, input, existing = null) {
 
 function isOtaSimpleTransport(user, kind, factory = user.factory) {
   return kind === "dispatch"
+    && (isSeasoning(user) ? factory === "OTA" : user.factory === "OTA");
+}
+
+function isOtaReturn(user, kind, factory = user.factory) {
+  return kind === "returns"
     && (isSeasoning(user) ? factory === "OTA" : user.factory === "OTA");
 }
 
@@ -311,6 +323,7 @@ export default async function handler(req, res) {
     }
     const otaTransport = isOtaSimpleTransport(user, kind, record.f);
     if (otaTransport) clearOtaTransportDetails(record, kind);
+    if (isOtaReturn(user, kind, record.f)) clearOtaReturnDetails(record);
     if (["dispatch", "returns"].includes(kind) && !otaTransport) {
       if (typeof record.truck !== "string" || !/^[A-Za-z0-9]*$/.test(record.truck))
         return res.status(400).send("Truck number must contain only letters and numbers");
@@ -439,6 +452,7 @@ export default async function handler(req, res) {
     }
     const otaTransport = isOtaSimpleTransport(user, kind, record.f);
     if (otaTransport) clearOtaTransportDetails(record, kind);
+    if (isOtaReturn(user, kind, record.f)) clearOtaReturnDetails(record);
     if (["dispatch", "returns"].includes(kind) && !otaTransport) {
       if (typeof record.truck !== "string" || !/^[A-Za-z0-9]*$/.test(record.truck))
         return res.status(400).send("Truck number must contain only letters and numbers");

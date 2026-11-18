@@ -85,16 +85,17 @@ entered by the Sorting Team, then add only Total cartons consumed. SORTING TEAM
 members select their factory and team at login; each factory has its own
 Sorting Team password. Sorting Team accounts access only the shift log, where
 members enter their name and Good/Bad counts. They cannot view Total. The
-sorter name is a dropdown at PHC (Jollof, Chicken, Onion) and Kaduna
-(Innocent, Anthony); OTA accepts a typed name. Both teams' entries are paired
-by factory, date, line, and shift. The shift is included in dashboard totals
-only after all three carton values are present. Total is entered independently
-and does not need to equal Good + Bad.
+sorter name is a dropdown at OTA (Kingsley, Ayo), PHC (Jollof, Chicken,
+Onion), and Kaduna (Innocent, Anthony). Both teams' entries are paired by
+factory, date, line, and shift. The shift is included in dashboard totals only
+after all three carton values are present. Total is entered independently and
+does not need to equal Good + Bad.
 
 Seasoning retains one login and its existing dashboard, can manage all
 factories, and records monthly dispatched carton totals by factory without
 truck or waybill details. OTA dispatch forms omit truck and waybill details;
-return tracking for OTA, PHC, and Kaduna includes truck, driver, phone, and
+OTA return tracking keeps the driver name but omits truck, phone, and waybill
+details. PHC and Kaduna return tracking include truck, driver, phone, and
 waybill details. OTA can view dispatch entries, while Seasoning manages
 dispatches.
 Factory and Seasoning dashboards show return totals and rates and carton
