@@ -100,8 +100,6 @@ function validateShiftValues(record) {
     throw new InputError("Good cartons must be a whole number greater than or equal to zero");
   if (record.bad !== undefined && !hasBad)
     throw new InputError("Bad cartons must be a whole number greater than or equal to zero");
-  if (hasUsed && hasGood && hasBad && record.good + record.bad !== record.used)
-    throw new InputError("Good and bad cartons do not match the total consumed for this shift");
 }
 
 async function buildShiftRecord(user, input, existing = null) {

@@ -88,8 +88,8 @@ members enter their name and Good/Bad counts. They cannot view Total. The
 sorter name is a dropdown at PHC (Jollof, Chicken, Onion) and Kaduna
 (Innocent, Anthony); OTA accepts a typed name. Both teams' entries are paired
 by factory, date, line, and shift. The shift is included in dashboard totals
-only after all three carton values are present; once both teams have entered
-their values, Good + Bad must equal Total.
+only after all three carton values are present. Total is entered independently
+and does not need to equal Good + Bad.
 
 Seasoning retains one login and its existing dashboard, can manage all
 factories, and records monthly dispatched carton totals by factory without
