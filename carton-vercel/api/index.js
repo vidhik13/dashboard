@@ -81,11 +81,14 @@ function clearOtaTransportDetails(record, kind) {
 }
 
 function normalizeFactory(factory) {
-  return factory === "OA" ? "OTA" : factory;
+  if (typeof factory !== "string") return factory;
+  const normalized = factory.trim().toUpperCase();
+  return normalized === "OA" ? "OTA" : normalized;
 }
 
 function normalizeFactoryRecord(record) {
-  return record.f === "OA" ? { ...record, f: "OTA" } : record;
+  const factory = normalizeFactory(record.f);
+  return factory === record.f ? record : { ...record, f: factory };
 }
 
 function activeFactoryRecords(records) {

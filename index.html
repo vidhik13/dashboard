@@ -120,6 +120,15 @@ const C=["dispatch","shifts","returns","receipts"];
 let D={dispatch:[],shifts:[],returns:[],receipts:[]},tab="Dashboard",user=null,token=sessionStorage.getItem("carton_token")||"",thr=500;
 let selectedFactory=F[0];
 const $=s=>document.querySelector(s);
+const normalizeFactoryName=factory=>{
+ if(typeof factory!=="string")return factory;
+ const normalized=factory.trim().toUpperCase();
+ return normalized==="OA"?"OTA":normalized;
+};
+const normalizeFactoryRecord=record=>{
+ const factory=normalizeFactoryName(record.f);
+ return factory===record.f?record:{...record,f:factory};
+};
 const storedTheme=localStorage.getItem("carton_theme");
 const initialTheme=storedTheme==="light"||storedTheme==="dark"?storedTheme:(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");
 function setTheme(theme,persist=false){
@@ -441,7 +450,7 @@ $("#loginForm").onsubmit=async e=>{
 async function load(){
  if(!token){setAuthenticated(false);return}
  try{
-  const d=await api("GET");C.forEach(k=>D[k]=d[k]||[]);user=d.user;
+  const d=await api("GET");C.forEach(k=>D[k]=(d[k]||[]).map(normalizeFactoryRecord));user=d.user;
   if(d.settings&&d.settings.thr!=null)thr=d.settings.thr;
   setAuthenticated(true);$("#msg").textContent="";
   const el=document.activeElement;if(!el||!/INPUT|SELECT/.test(el.tagName))render();
