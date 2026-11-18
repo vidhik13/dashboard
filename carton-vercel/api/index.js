@@ -189,6 +189,15 @@ export default async function handler(req, res) {
         return res.status(400).send("Invalid factory");
       if (!isSeasoning(user)) record.f = user.factory;
     }
+    if (kind === "dispatch" && isSeasoning(user)) {
+      if (typeof record.dt !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(record.dt))
+        return res.status(400).send("Dispatch month must use YYYY-MM format");
+      if (!hasNonNegativeIntegers(record, ["qty"]))
+        return res.status(400).send("Monthly cartons sent must be a whole number greater than or equal to zero");
+      record.truck = "";
+      record.wb = "";
+      record.eta = "";
+    }
     const otaTransport = isOtaSimpleTransport(user, kind, record.f);
     if (otaTransport) clearOtaTransportDetails(record, kind);
     if (["dispatch", "returns"].includes(kind) && !otaTransport) {
@@ -300,6 +309,15 @@ export default async function handler(req, res) {
       if (isSeasoning(user) && !FACTORIES.includes(record.f))
         return res.status(400).send("Invalid factory");
       if (!isSeasoning(user)) record.f = user.factory;
+    }
+    if (kind === "dispatch" && isSeasoning(user)) {
+      if (typeof record.dt !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(record.dt))
+        return res.status(400).send("Dispatch month must use YYYY-MM format");
+      if (!hasNonNegativeIntegers(record, ["qty"]))
+        return res.status(400).send("Monthly cartons sent must be a whole number greater than or equal to zero");
+      record.truck = "";
+      record.wb = "";
+      record.eta = "";
     }
     const otaTransport = isOtaSimpleTransport(user, kind, record.f);
     if (otaTransport) clearOtaTransportDetails(record, kind);

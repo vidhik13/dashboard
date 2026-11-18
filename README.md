@@ -77,8 +77,10 @@ The database stores records in `carton_records` and the alert threshold in
 KADUNA 1–6. Shift numbers are 1, 2, and 3.
 
 Factory accounts can access their own records. Seasoning can manage all
-factories. OTA dispatch and return forms omit truck, driver, and waybill
-details; OTA can view dispatch entries, while Seasoning manages dispatches.
+factories. Seasoning records monthly dispatched carton totals by factory
+without truck or waybill details. OTA dispatch and return forms omit truck,
+driver, and waybill details; OTA can view dispatch entries, while Seasoning
+manages dispatches.
 The dashboard shows return totals and rates and carton acceptance MTD/YTD.
 Sessions expire after eight hours. To change a password, update the matching
 `AUTH_PASSWORD_*` value in Vercel and redeploy.

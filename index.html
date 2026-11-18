@@ -235,6 +235,7 @@ function formHTML(kind){
  const formFactory=user.role==="seasoning"?selectedFactory:user.factory;
  const isOtaForm=formFactory==="OTA";
  if(kind==="dispatch"){
+  if(user.role==="seasoning")return factoryField()+field("f_month","Month","month",`value="${now().slice(0,7)}" required`)+field("f_qty","Cartons sent","number","min=\"0\" step=\"1\" required")+`<button class="go">Log monthly dispatch</button>`;
   if(isOtaForm)return factoryField()+field("f_dt","Date & time","datetime-local",`value="${now()}" required`)+field("f_qty","Cartons sent","number","min=\"0\" step=\"1\" required")+`<button class="go">Log dispatch</button>`;
   return field("f_dt","Date & time","datetime-local",`value="${now()}"`)+factoryField()+truckNumberField()+waybillField()+field("f_qty","Cartons sent","number")+field("f_eta","ETA","datetime-local")+`<button class="go">Log dispatch</button>`;
  }
@@ -250,6 +251,7 @@ function rec(kind){
  const formFactory=user.role==="seasoning"?selectedFactory:user.factory;
  const isOtaForm=formFactory==="OTA";
  if(kind==="dispatch"){
+  if(user.role==="seasoning")return{f:val("f_f"),truck:"",wb:"",qty:+val("f_qty"),dt:val("f_month"),eta:""};
   if(isOtaForm)return{f:formFactory,truck:"",wb:"",qty:+val("f_qty"),dt:val("f_dt"),eta:""};
   return{f:val("f_f"),truck:val("f_truck").toUpperCase(),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt"),eta:val("f_eta")};
  }
@@ -270,14 +272,15 @@ function rows(kind,readOnly=false){
  if(kind==="receipts")a=a.map(x=>{const r=D.returns.find(y=>y.id===x.rid)||{};return{...x,f:r.f,truck:r.truck,wb:r.wb,qty:r.qty}});
  a.sort((x,y)=>String(y.dt||y.date||"").localeCompare(String(x.dt||x.date||"")));
  const isOtaSimpleTransport=["dispatch","returns"].includes(kind)&&user.role!=="seasoning"&&user.factory==="OTA";
- const c=isOtaSimpleTransport?[["dt","Date & time"],["qty",kind==="returns"?"Cartons returned":"Cartons sent"]]:COLS[kind];
+ const isSeasoningMonthlyDispatch=kind==="dispatch"&&user.role==="seasoning";
+ const c=isSeasoningMonthlyDispatch?[["dt","Month"],["f","Factory"],["qty","Cartons sent"]]:isOtaSimpleTransport?[["dt","Date & time"],["qty",kind==="returns"?"Cartons returned":"Cartons sent"]]:COLS[kind];
  const canManage=!readOnly&&(user.role==="seasoning"||["shifts","returns"].includes(kind));
  const actionHeader=canManage?"<th>Actions</th>":"";
  const rowHTML=a.map(r=>{
   const canManageRecord=canManage&&(user.role==="seasoning"||r.f===user.factory);
   const actions=canManageRecord?`<button class="edit" data-log-action="edit" data-log-kind="${kind}" data-log-id="${escapeHTML(r.id)}">Edit</button><button class="delete" data-log-action="delete" data-log-kind="${kind}" data-log-id="${escapeHTML(r.id)}">Delete</button>`:"";
   const action=canManage?`<td>${actions}</td>`:"";
-  return `<tr>${c.map(x=>{const value=r[x[0]]??"";return `<td>${fmt(x[0]==="f"?normalizeFactoryName(value):value)}</td>`}).join("")}${action}</tr>`;
+  return `<tr>${c.map(x=>{const value=r[x[0]]??"";const displayValue=isSeasoningMonthlyDispatch&&x[0]==="dt"?String(value).slice(0,7):x[0]==="f"?normalizeFactoryName(value):value;return `<td>${fmt(displayValue)}</td>`}).join("")}${action}</tr>`;
  }).join("");
  return `<div class="tw"><table><tr>${c.map(x=>`<th>${x[1]}</th>`).join("")}${actionHeader}</tr>${rowHTML||`<tr><td class="mu" colspan="${c.length+(canManage?1:0)}">No entries yet</td></tr>`}</table></div>`}
 function render(){
@@ -349,8 +352,8 @@ function render(){
  if(editing&&editing.kind===kind){
   const record=D[kind].find(item=>item.id===editing.id);
   const isOtaRecord=record?.f==="OTA";
-  const fields={dispatch:isOtaRecord?(user.role==="seasoning"?{f:"f_f",dt:"f_dt",qty:"f_qty"}:{dt:"f_dt",qty:"f_qty"}):{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},shifts:{f:"f_f",date:"f_date",line:"f_line",sh:"f_sh",used:"f_used",good:"f_good",bad:"f_bad"},returns:isOtaRecord?(user.role==="seasoning"?{f:"f_f",dt:"f_dt",qty:"f_qty"}:{dt:"f_dt",qty:"f_qty"}):{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
-  if(record)for(const [key,id] of Object.entries(fields)){const input=$("#"+id);if(input)input.value=key==="truck"?String(record[key]??"").toUpperCase().replace(/[^A-Z0-9]/g,""):key==="driver"?String(record[key]??"").replace(/[0-9]/g,""):record[key]??""}
+  const fields={dispatch:user.role==="seasoning"?{f:"f_f",dt:"f_month",qty:"f_qty"}:isOtaRecord?{dt:"f_dt",qty:"f_qty"}:{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},shifts:{f:"f_f",date:"f_date",line:"f_line",sh:"f_sh",used:"f_used",good:"f_good",bad:"f_bad"},returns:isOtaRecord?(user.role==="seasoning"?{f:"f_f",dt:"f_dt",qty:"f_qty"}:{dt:"f_dt",qty:"f_qty"}):{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
+  if(record)for(const [key,id] of Object.entries(fields)){const input=$("#"+id);if(input)input.value=key==="truck"?String(record[key]??"").toUpperCase().replace(/[^A-Z0-9]/g,""):key==="driver"?String(record[key]??"").replace(/[0-9]/g,""):id==="f_month"?String(record[key]??"").slice(0,7):record[key]??""}
   const submit=$("#frm .go");if(submit)submit.textContent="Save changes";
  }
  let shiftCartonInputMode=null;
