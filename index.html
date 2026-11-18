@@ -139,15 +139,32 @@ const normalizeFactoryRecord=record=>{
  const factory=normalizeFactoryName(record.f);
  return factory===record.f?record:{...record,f:factory};
 };
-const storedTheme=localStorage.getItem("carton_theme");
-const initialTheme=storedTheme==="light"||storedTheme==="dark"?storedTheme:(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");
+const systemTheme=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";
+const themeKey=username=>`carton_theme_${encodeURIComponent(username)}`;
+let loginThemeChoice=null;
 function setTheme(theme,persist=false){
  document.documentElement.dataset.theme=theme;
  $("#themeLight").setAttribute("aria-pressed",String(theme==="light"));
  $("#themeDark").setAttribute("aria-pressed",String(theme==="dark"));
- if(persist)localStorage.setItem("carton_theme",theme);
+ if(persist){
+  if(user?.username)localStorage.setItem(themeKey(user.username),theme);
+  else loginThemeChoice=theme;
+ }
 }
-setTheme(initialTheme);
+function applyThemeForCurrentUser(){
+ let theme=systemTheme;
+ if(user?.username){
+  let preference=localStorage.getItem(themeKey(user.username));
+  if(!["light","dark"].includes(preference)&&["light","dark"].includes(loginThemeChoice)){
+   preference=loginThemeChoice;
+   localStorage.setItem(themeKey(user.username),preference);
+  }
+  if(["light","dark"].includes(preference))theme=preference;
+ }
+ loginThemeChoice=null;
+ setTheme(theme);
+}
+applyThemeForCurrentUser();
 $("#themeLight").onclick=()=>setTheme("light",true);
 $("#themeDark").onclick=()=>setTheme("dark",true);
 const sum=(a,k)=>a.reduce((s,x)=>s+(+x[k]||0),0);
@@ -394,7 +411,7 @@ function render(){
  }
  updateCalculatedReceipt();
  document.querySelectorAll("nav button[data-t]").forEach(b=>b.onclick=()=>{editing=null;tab=b.dataset.t;render()});
- const logout=$("#logout");logout.onclick=()=>{token="";user=null;editing=null;sessionStorage.removeItem("carton_token");$("#loginMsg").textContent="You have been logged out.";setAuthenticated(false)};
+ const logout=$("#logout");logout.onclick=()=>{token="";user=null;applyThemeForCurrentUser();editing=null;sessionStorage.removeItem("carton_token");$("#loginMsg").textContent="You have been logged out.";setAuthenticated(false)};
  const t=$("#thr");if(t)t.onchange=async()=>{
   thr=+t.value||0;render();
   try{
@@ -448,19 +465,19 @@ $("#loginForm").onsubmit=async e=>{
  e.preventDefault();
  try{
   const result=await api("POST",{action:"login",plant:$("#plant").value,team:$("#team").value,password:$("#password").value},false);
-  token=result.token;user=result.user;sessionStorage.setItem("carton_token",token);
+  token=result.token;user=result.user;applyThemeForCurrentUser();sessionStorage.setItem("carton_token",token);
   $("#password").value="";$("#plant").value="";$("#loginMsg").textContent="";setAuthenticated(true);$("#msg").textContent="";tab="Dashboard";await load();
  }catch(error){$("#loginMsg").textContent=error.message}
 };
 async function load(){
  if(!token){setAuthenticated(false);return}
  try{
-  const d=await api("GET");C.forEach(k=>D[k]=(d[k]||[]).map(normalizeFactoryRecord));user=d.user;
+  const d=await api("GET");C.forEach(k=>D[k]=(d[k]||[]).map(normalizeFactoryRecord));user=d.user;applyThemeForCurrentUser();
   if(d.settings&&d.settings.thr!=null)thr=d.settings.thr;
   setAuthenticated(true);$("#msg").textContent="";
   const el=document.activeElement;if(!el||!/INPUT|SELECT/.test(el.tagName))render();
  }catch(error){
-  if(error.status===401){token="";user=null;editing=null;sessionStorage.removeItem("carton_token");$("#loginMsg").textContent="Your session expired. Please sign in again.";setAuthenticated(false);return}
+  if(error.status===401){token="";user=null;applyThemeForCurrentUser();editing=null;sessionStorage.removeItem("carton_token");$("#loginMsg").textContent="Your session expired. Please sign in again.";setAuthenticated(false);return}
   $("#msg").textContent=error.message;
  }
 }
