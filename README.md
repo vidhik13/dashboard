@@ -84,17 +84,20 @@ current website access. They enter only total cartons consumed on the shift
 log. SORTING TEAM members select their factory and team at login; each factory
 has its own Sorting Team password. Sorting Team accounts access only the shift
 log, where members enter their name and Good/Bad counts. They cannot view
-Total. Both teams' entries are paired by factory, date, line, and shift. The
-shift is included in dashboard totals only after all three carton values are
-present; once both teams have entered their values, Good + Bad must equal
-Total.
+Total. The sorter name is a dropdown at PHC (Jollof, Chicken, Onion) and
+Kaduna (Innocent, Anthony); OTA accepts a typed name. Both teams' entries are
+paired by factory, date, line, and shift. The shift is included in dashboard
+totals only after all three carton values are present; once both teams have
+entered their values, Good + Bad must equal Total.
 
 Seasoning retains one login and its existing dashboard, can manage all
 factories, and records monthly dispatched carton totals by factory without
 truck or waybill details. OTA dispatch and return forms omit truck, driver,
 and waybill details; OTA can view dispatch entries, while Seasoning manages
 dispatches.
-The dashboard shows return totals and rates and carton acceptance MTD/YTD.
+Factory and Seasoning dashboards show return totals and rates and carton
+acceptance for MTD, last month, and YTD. Factory dashboards retain the recent
+returns list.
 Sessions expire after eight hours. To change a password, update the matching
 `AUTH_PASSWORD_*` value in Vercel and redeploy.
 

@@ -14,6 +14,10 @@ const FACTORY_LINES = {
   PHC: [1, 2, 3, 4, 5, 6, 7, 8, 9],
   KADUNA: [1, 2, 3, 4, 5, 6],
 };
+const SORTER_NAMES = {
+  PHC: ["Jollof", "Chicken", "Onion"],
+  KADUNA: ["Innocent", "Anthony"],
+};
 
 class InputError extends Error {}
 
@@ -130,6 +134,10 @@ async function buildShiftRecord(user, input, existing = null) {
     record.sorter = typeof input.sorter === "string" ? input.sorter.trim() : "";
     if (!record.sorter || record.sorter.length > 100)
       throw new InputError("Enter the sorting team member's name (up to 100 characters)");
+    const allowedSorters = SORTER_NAMES[factory];
+    if (allowedSorters && !allowedSorters.includes(record.sorter)
+      && (!existing || record.sorter !== existing.sorter))
+      throw new InputError(`Select a valid sorting team member for ${factory}`);
   } else if (user.role === "noodle") {
     record.used = input.used;
   } else {
