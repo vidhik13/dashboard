@@ -285,8 +285,7 @@ function formHTML(kind){
    return `<label>Sorter shift and line<select id="f_shift_record" required><option value="">Select shift</option>${options}</select></label>`+wholeNumberField("f_used","Total cartons consumed",true)+`<button class="go">Save shift total</button>`;
   }
   const locked=Boolean(existingShift);
-  const shiftOptions=[...(FACTORY_SHIFT_OPTIONS[formFactory]||[])];
-  if(existingShift&&!shiftOptions.includes(Number(existingShift.sh)))shiftOptions.unshift(Number(existingShift.sh));
+  const shiftOptions=FACTORY_SHIFT_OPTIONS[formFactory]||[];
   const shiftChoices=shiftOptions.map(shift=>`<option value="${shift}"${existingShift&&String(existingShift.sh)===String(shift)?" selected":""}>${shift}</option>`).join("");
   const identity=field("f_date","Date","date",`value="${now().slice(0,10)}" required${locked?" readonly":""}`)+factoryField()+lineSelectField(formFactory,existingShift?.line||"",locked)+`<label>Shift<select id="f_sh"${locked?" disabled":""}>${shiftChoices}</select></label>`;
   const sorterField=()=>{

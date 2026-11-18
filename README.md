@@ -78,6 +78,8 @@ audience.
 The database stores records in `carton_records` and the alert threshold in
 `carton_settings`. Shift lines are limited by factory: OTA 1–6, PHC 1–9, and
 KADUNA 1–6. OTA and Kaduna use shifts 1 and 2; PHC uses shifts 1, 2, and 3.
+Out-of-range historical shifts remain stored but are hidden from the app and
+Excel exports.
 
 WAREHOUSE accounts use the existing factory passwords and retain their
 current website access. On the shift log, they select a line and shift already

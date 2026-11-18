@@ -94,19 +94,14 @@ function isValidShiftDate(date) {
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
 }
 
-function validateShiftIdentity(record, existing = null) {
+function validateShiftIdentity(record) {
   if (!isValidShiftDate(record.date))
     throw new InputError("Shift date must be a valid calendar date");
   if (!Number.isSafeInteger(record.line) || !isValidFactoryLine(record.f, record.line))
     throw new InputError(`Invalid line for ${record.f}`);
   const allowedShifts = FACTORY_SHIFTS[record.f];
   const shift = String(record.sh);
-  const retainsExistingShift = existing
-    && normalizeFactory(existing.f) === record.f
-    && existing.date === record.date
-    && existing.line === record.line
-    && String(existing.sh) === shift;
-  if (!allowedShifts?.some(value => String(value) === shift) && !retainsExistingShift)
+  if (!allowedShifts?.some(value => String(value) === shift))
     throw new InputError(`Shift must be ${allowedShifts.join(" or ")}`);
   record.sh = String(record.sh);
 }
@@ -168,7 +163,7 @@ async function buildShiftRecord(user, input, existing = null) {
     record.bad = input.bad;
   }
 
-  validateShiftIdentity(record, existing);
+  validateShiftIdentity(record);
   const requiredValues = user.role === "sorting"
     ? ["good", "bad"]
     : user.role === "noodle" ? ["used"] : ["used", "good", "bad"];
@@ -219,6 +214,11 @@ function activeFactoryRecords(records) {
     .filter(record => FACTORIES.includes(record.f));
 }
 
+function activeShiftRecords(records) {
+  return activeFactoryRecords(records)
+    .filter(record => FACTORY_SHIFTS[record.f]?.includes(Number(record.sh)));
+}
+
 function hasNonNegativeIntegers(record, fields) {
   return fields.every(field => Number.isSafeInteger(record[field]) && record[field] >= 0);
 }
@@ -233,7 +233,7 @@ async function readDashboardData() {
     readSettings(),
   ]);
   const activeDispatch = activeFactoryRecords(dispatch);
-  const activeShifts = activeFactoryRecords(shifts);
+  const activeShifts = activeShiftRecords(shifts);
   const activeReturns = activeFactoryRecords(returns);
   const activeReturnIds = new Set(activeReturns.map(record => record.id));
   return {
@@ -259,7 +259,9 @@ export async function excelExportHandler(req, res) {
 
   res.setHeader("Cache-Control", "no-store");
   const records = await readRecords(kind);
-  if (["dispatch", "shifts", "returns"].includes(kind))
+  if (kind === "shifts")
+    return res.status(200).json(activeShiftRecords(records));
+  if (["dispatch", "returns"].includes(kind))
     return res.status(200).json(activeFactoryRecords(records));
   const activeReturnIds = new Set(activeFactoryRecords(await readRecords("returns")).map(record => record.id));
   return res.status(200).json(records.filter(record => activeReturnIds.has(record.rid)));
