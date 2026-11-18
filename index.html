@@ -144,7 +144,7 @@ const sum=(a,k)=>a.reduce((s,x)=>s+(+x[k]||0),0);
 const storageMessage=action=>`${action}.`;
 const now=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);
 const escapeHTML=t=>String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const fmt=t=>t?escapeHTML(String(t).replace("T"," ")):"";
+const fmt=t=>t?escapeHTML(String(t).replace(/^(\d{4}-\d{2}-\d{2})T/,"$1 ")):"";
 let editing=null;
 const FACTORY_LINE_OPTIONS={OTA:[1,2,3,4,5,6],PHC:[1,2,3,4,5,6,7,8,9],KADUNA:[1,2,3,4,5,6]};
 const factoryField=()=>user.role==="seasoning"?`<label>Factory<select id="f_f">${F.map(f=>`<option${f===selectedFactory?" selected":""}>${f}</option>`).join("")}</select></label>`:`<input id="f_f" type="hidden" value="${user.factory}">`;
@@ -277,7 +277,7 @@ function rows(kind,readOnly=false){
   const canManageRecord=canManage&&(user.role==="seasoning"||r.f===user.factory);
   const actions=canManageRecord?`<button class="edit" data-log-action="edit" data-log-kind="${kind}" data-log-id="${escapeHTML(r.id)}">Edit</button><button class="delete" data-log-action="delete" data-log-kind="${kind}" data-log-id="${escapeHTML(r.id)}">Delete</button>`:"";
   const action=canManage?`<td>${actions}</td>`:"";
-  return `<tr>${c.map(x=>`<td>${fmt(r[x[0]]??"")}</td>`).join("")}${action}</tr>`;
+  return `<tr>${c.map(x=>{const value=r[x[0]]??"";return `<td>${fmt(x[0]==="f"?normalizeFactoryName(value):value)}</td>`}).join("")}${action}</tr>`;
  }).join("");
  return `<div class="tw"><table><tr>${c.map(x=>`<th>${x[1]}</th>`).join("")}${actionHeader}</tr>${rowHTML||`<tr><td class="mu" colspan="${c.length+(canManage?1:0)}">No entries yet</td></tr>`}</table></div>`}
 function render(){
