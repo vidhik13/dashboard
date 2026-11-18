@@ -162,7 +162,7 @@ async function buildShiftRecord(user, input, existing = null) {
 }
 
 function isOtaSimpleTransport(user, kind, factory = user.factory) {
-  return ["dispatch", "returns"].includes(kind)
+  return kind === "dispatch"
     && (isSeasoning(user) ? factory === "OTA" : user.factory === "OTA");
 }
 

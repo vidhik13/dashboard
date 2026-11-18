@@ -297,7 +297,6 @@ function formHTML(kind){
   return identity+contribution+`<button class="go">Save shift</button>`;
  }
  if(kind==="returns"){
-  if(isOtaForm)return factoryField()+field("f_dt","Date & time","datetime-local",`value="${now()}" required`)+field("f_qty","Cartons returned","number","min=\"0\" step=\"1\" required")+`<button class="go">Log return</button>`;
   return factoryField()+truckNumberField()+driverNameField()+phoneNumberField()+waybillField()+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
  }
  if(kind==="receipts"){const current=editing?.kind==="receipts"?D.receipts.find(x=>x.id===editing.id):null;const o=D.returns.filter(x=>!D.receipts.some(c=>c.rid===x.id)||x.id===current?.rid).map(x=>`<option value="${escapeHTML(x.id)}">${escapeHTML(x.f)} | ${escapeHTML(x.truck)} | ${escapeHTML(x.wb)} | ${escapeHTML(x.qty)}</option>`).join("");
@@ -317,7 +316,6 @@ function rec(kind){
   return{f:user.factory,date:shift?.date,line:shift?.line,sh:shift?.sh,used:+val("f_used")};
  }
  if(kind==="returns"){
-  if(isOtaForm)return{f:formFactory,truck:"",driver:"",ph:"",wb:"",qty:+val("f_qty"),dt:val("f_dt"),eta:""};
   return{f:val("f_f"),truck:val("f_truck").toUpperCase(),driver:val("f_driver"),ph:val("f_ph"),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt"),eta:val("f_eta")};
  }
  return{rid:val("f_rid"),acc:+val("f_acc"),rej:+val("f_rej"),dt:val("f_dt")};
@@ -331,7 +329,7 @@ function rows(kind,readOnly=false){
  if(kind==="returns")a=a.map(x=>({...x,status:D.receipts.some(c=>c.rid===x.id)?"Received":"In transit"}));
  if(kind==="receipts")a=a.map(x=>{const r=D.returns.find(y=>y.id===x.rid)||{};return{...x,f:r.f,truck:r.truck,wb:r.wb,qty:r.qty}});
  a.sort((x,y)=>String(y.dt||y.date||"").localeCompare(String(x.dt||x.date||"")));
- const isOtaSimpleTransport=["dispatch","returns"].includes(kind)&&user.role!=="seasoning"&&user.factory==="OTA";
+ const isOtaSimpleTransport=kind==="dispatch"&&user.role!=="seasoning"&&user.factory==="OTA";
  const isSeasoningMonthlyDispatch=kind==="dispatch"&&user.role==="seasoning";
  const c=isSeasoningMonthlyDispatch?[["dt","Month"],["f","Factory"],["qty","Cartons sent"]]:isOtaSimpleTransport?[["dt","Date & time"],["qty",kind==="returns"?"Cartons returned":"Cartons sent"]]:kind==="shifts"&&user.role==="sorting"?[["date","Date"],["line","Line"],["sh","Shift"],["f","Factory"],["sorter","Sorter"],["good","Good"],["bad","Bad"]]:COLS[kind];
  const canManage=!readOnly&&(user.role==="seasoning"||(user.role==="noodle"&&["shifts","returns"].includes(kind))||(user.role==="sorting"&&kind==="shifts"));
@@ -412,7 +410,7 @@ function render(){
  if(editing&&editing.kind===kind){
   const record=D[kind].find(item=>item.id===editing.id);
   const isOtaRecord=record?.f==="OTA";
-  const fields={dispatch:user.role==="seasoning"?{f:"f_f",dt:"f_month",qty:"f_qty"}:isOtaRecord?{dt:"f_dt",qty:"f_qty"}:{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},shifts:user.role==="sorting"?{f:"f_f",date:"f_date",line:"f_line",sh:"f_sh",good:"f_good",bad:"f_bad",sorter:"f_sorter"}:{f:"f_f",date:"f_date",line:"f_line",sh:"f_sh",used:"f_used"},returns:isOtaRecord?(user.role==="seasoning"?{f:"f_f",dt:"f_dt",qty:"f_qty"}:{dt:"f_dt",qty:"f_qty"}):{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
+  const fields={dispatch:user.role==="seasoning"?{f:"f_f",dt:"f_month",qty:"f_qty"}:isOtaRecord?{dt:"f_dt",qty:"f_qty"}:{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},shifts:user.role==="sorting"?{f:"f_f",date:"f_date",line:"f_line",sh:"f_sh",good:"f_good",bad:"f_bad",sorter:"f_sorter"}:{f:"f_f",date:"f_date",line:"f_line",sh:"f_sh",used:"f_used"},returns:{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
   if(record)for(const [key,id] of Object.entries(fields)){const input=$("#"+id);if(input)input.value=key==="truck"?String(record[key]??"").toUpperCase().replace(/[^A-Z0-9]/g,""):key==="driver"?String(record[key]??"").replace(/[0-9]/g,""):id==="f_month"?String(record[key]??"").slice(0,7):record[key]??""}
   const submit=$("#frm .go");if(submit)submit.textContent="Save changes";
  }

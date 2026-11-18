@@ -93,8 +93,9 @@ and does not need to equal Good + Bad.
 
 Seasoning retains one login and its existing dashboard, can manage all
 factories, and records monthly dispatched carton totals by factory without
-truck or waybill details. OTA dispatch and return forms omit truck, driver,
-and waybill details; OTA can view dispatch entries, while Seasoning manages
+truck or waybill details. OTA dispatch forms omit truck and waybill details;
+return tracking for OTA, PHC, and Kaduna includes truck, driver, phone, and
+waybill details. OTA can view dispatch entries, while Seasoning manages
 dispatches.
 Factory and Seasoning dashboards show return totals and rates and carton
 acceptance for MTD, last month, and YTD. Factory dashboards retain the recent
