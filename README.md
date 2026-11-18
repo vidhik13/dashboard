@@ -15,9 +15,10 @@ for dispatches, shifts, returns, receipts, and settings.
    - `SUPABASE_SERVICE_ROLE_KEY`: the project’s `service_role` key.
 5. Keep `AUTH_SECRET` and the existing warehouse/Seasoning password variables
    `AUTH_PASSWORD_KADUNA`, `AUTH_PASSWORD_OTA`, `AUTH_PASSWORD_PHC`, and
-   `AUTH_PASSWORD_SEASONING` configured in Vercel. Set `AUTH_PASSWORD_SORTING`
-   to the shared Sorting Team password in Vercel. Do not put passwords in the
-   repository.
+   `AUTH_PASSWORD_SEASONING` configured in Vercel. Set separate Sorting Team
+   passwords in Vercel as `AUTH_PASSWORD_SORTING_OTA`,
+   `AUTH_PASSWORD_SORTING_PHC`, and `AUTH_PASSWORD_SORTING_KADUNA`. Do not put
+   passwords in the repository.
 6. Apply variables to Production (and Preview if needed), redeploy, then sign
    in as Seasoning and verify that the dashboard loads.
 
@@ -80,12 +81,13 @@ KADUNA 1–6. Shift numbers are 1, 2, and 3.
 
 WAREHOUSE accounts use the existing factory passwords and retain their
 current website access. They enter only total cartons consumed on the shift
-log. SORTING TEAM members select their factory and team at login; the shared
-Sorting Team password grants access only to the shift log, where they enter
-their name and Good/Bad counts. Sorting Team members cannot view Total. Both
-teams' entries are paired by factory, date, line, and shift. The shift is
-included in dashboard totals only after all three carton values are present;
-once both teams have entered their values, Good + Bad must equal Total.
+log. SORTING TEAM members select their factory and team at login; each factory
+has its own Sorting Team password. Sorting Team accounts access only the shift
+log, where members enter their name and Good/Bad counts. They cannot view
+Total. Both teams' entries are paired by factory, date, line, and shift. The
+shift is included in dashboard totals only after all three carton values are
+present; once both teams have entered their values, Good + Bad must equal
+Total.
 
 Seasoning retains one login and its existing dashboard, can manage all
 factories, and records monthly dispatched carton totals by factory without

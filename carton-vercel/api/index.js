@@ -244,7 +244,7 @@ export default async function handler(req, res) {
     if (!["warehouse", "sorting"].includes(team) || (plant === "SEASONING" && team !== "warehouse"))
       return res.status(400).send("Select a valid team for this plant.");
     const passwordVariable = team === "sorting"
-      ? "AUTH_PASSWORD_SORTING"
+      ? `AUTH_PASSWORD_SORTING_${plant}`
       : plant === "SEASONING" ? "AUTH_PASSWORD_SEASONING" : `AUTH_PASSWORD_${plant}`;
     const expectedPassword = process.env[passwordVariable];
     if (!expectedPassword)
