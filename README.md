@@ -90,14 +90,15 @@ Onion), and Kaduna (Innocent, Anthony). Both teams' entries are paired by
 factory, date, line, and shift. The shift is included in dashboard totals only
 after all three carton values are present. Total is entered independently and
 does not need to equal Good + Bad.
+Where edit actions are available, a delete action is also available. Deleting
+a shift removes the whole paired record, including both teams' values.
 
 Seasoning retains one login and its existing dashboard, can manage all
 factories, and records monthly dispatched carton totals by factory without
 truck or waybill details. OTA dispatch forms omit truck and waybill details;
-OTA return tracking keeps the driver name but omits truck, phone, and waybill
-details. PHC and Kaduna return tracking include truck, driver, phone, and
-waybill details. OTA can view dispatch entries, while Seasoning manages
-dispatches.
+OTA return tracking records only date/time and carton quantity. PHC and Kaduna
+return tracking include truck, driver, phone, waybill, and ETA details. OTA
+can view dispatch entries, while Seasoning manages dispatches.
 Factory and Seasoning dashboards show return totals and rates and carton
 acceptance for MTD, last month, and YTD. Factory dashboards retain the recent
 returns list.

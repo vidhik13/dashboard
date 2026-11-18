@@ -67,8 +67,10 @@ function readToken(req) {
 
 function clearOtaReturnDetails(record) {
   record.truck = "";
+  record.driver = "";
   record.ph = "";
   record.wb = "";
+  record.eta = "";
 }
 
 function isSeasoning(user) {
@@ -362,8 +364,6 @@ export default async function handler(req, res) {
     if (typeof id !== "string" || !id) return res.status(400).send("Invalid record id");
     if (!canManageKind(user, kind))
       return res.status(403).send("This account cannot delete that data");
-    if (kind === "shifts" && !isSeasoning(user))
-      return res.status(403).send("Only Seasoning can delete shift records");
 
     const record = await readRecord(kind, id);
     if (!record) return res.status(404).send("Record not found");
