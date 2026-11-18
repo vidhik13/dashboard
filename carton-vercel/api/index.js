@@ -121,6 +121,9 @@ async function buildShiftRecord(user, input, existing = null) {
     && record.line === identity.line
     && String(record.sh) === String(identity.sh),
   );
+  if (user.role === "noodle"
+    && (!matchingRecord || !hasNonNegativeIntegers(matchingRecord, ["good", "bad"])))
+    throw new InputError("Sorting Team must enter Good and Bad cartons before a total is added");
   const record = {
     ...(matchingRecord || {}),
     ...identity,

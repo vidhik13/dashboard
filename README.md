@@ -80,15 +80,16 @@ The database stores records in `carton_records` and the alert threshold in
 KADUNA 1–6. Shift numbers are 1, 2, and 3.
 
 WAREHOUSE accounts use the existing factory passwords and retain their
-current website access. They enter only total cartons consumed on the shift
-log. SORTING TEAM members select their factory and team at login; each factory
-has its own Sorting Team password. Sorting Team accounts access only the shift
-log, where members enter their name and Good/Bad counts. They cannot view
-Total. The sorter name is a dropdown at PHC (Jollof, Chicken, Onion) and
-Kaduna (Innocent, Anthony); OTA accepts a typed name. Both teams' entries are
-paired by factory, date, line, and shift. The shift is included in dashboard
-totals only after all three carton values are present; once both teams have
-entered their values, Good + Bad must equal Total.
+current website access. On the shift log, they select a line and shift already
+entered by the Sorting Team, then add only Total cartons consumed. SORTING TEAM
+members select their factory and team at login; each factory has its own
+Sorting Team password. Sorting Team accounts access only the shift log, where
+members enter their name and Good/Bad counts. They cannot view Total. The
+sorter name is a dropdown at PHC (Jollof, Chicken, Onion) and Kaduna
+(Innocent, Anthony); OTA accepts a typed name. Both teams' entries are paired
+by factory, date, line, and shift. The shift is included in dashboard totals
+only after all three carton values are present; once both teams have entered
+their values, Good + Bad must equal Total.
 
 Seasoning retains one login and its existing dashboard, can manage all
 factories, and records monthly dispatched carton totals by factory without

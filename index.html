@@ -269,6 +269,19 @@ function formHTML(kind){
  }
  if(kind==="shifts"){
   const existingShift=editing?.kind==="shifts"?D.shifts.find(record=>record.id===editing.id):null;
+  if(user.role==="noodle"&&!existingShift){
+   const waiting=D.shifts.filter(record=>
+    record.f===user.factory
+    &&(record.used===undefined||record.used===null)
+    &&Number.isSafeInteger(record.good)&&Number.isSafeInteger(record.bad),
+   );
+   if(!waiting.length)return `<p class="mu" style="grid-column:1/-1">No sorter-entered shifts are waiting for total cartons.</p>`;
+   const options=waiting.map(record=>{
+    const label=`${record.date} · Line ${record.line} · Shift ${record.sh} · ${record.sorter||"Sorter"} (${record.good} Good, ${record.bad} Bad)`;
+    return `<option value="${escapeHTML(record.id)}">${escapeHTML(label)}</option>`;
+   }).join("");
+   return `<label>Sorter shift and line<select id="f_shift_record" required><option value="">Select shift</option>${options}</select></label>`+wholeNumberField("f_used","Total cartons consumed",true)+`<button class="go">Save shift total</button>`;
+  }
   const locked=Boolean(existingShift);
   const identity=field("f_date","Date","date",`value="${now().slice(0,10)}" required${locked?" readonly":""}`)+factoryField()+lineSelectField(formFactory,existingShift?.line||"",locked)+`<label>Shift<select id="f_sh"${locked?" disabled":""}><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>`;
   const sorterField=()=>{
@@ -298,9 +311,11 @@ function rec(kind){
   if(isOtaForm)return{f:formFactory,truck:"",wb:"",qty:+val("f_qty"),dt:val("f_dt"),eta:""};
   return{f:val("f_f"),truck:val("f_truck").toUpperCase(),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt"),eta:val("f_eta")};
  }
- if(kind==="shifts")return user.role==="sorting"
-  ?{f:val("f_f"),date:val("f_date"),line:+val("f_line"),sh:val("f_sh"),good:+val("f_good"),bad:+val("f_bad"),sorter:val("f_sorter")}
-  :{f:val("f_f"),date:val("f_date"),line:+val("f_line"),sh:val("f_sh"),used:+val("f_used")};
+ if(kind==="shifts"){
+  if(user.role==="sorting")return{f:val("f_f"),date:val("f_date"),line:+val("f_line"),sh:val("f_sh"),good:+val("f_good"),bad:+val("f_bad"),sorter:val("f_sorter")};
+  const shift=editing?.kind==="shifts"?D.shifts.find(record=>record.id===editing.id):D.shifts.find(record=>record.id===val("f_shift_record"));
+  return{f:user.factory,date:shift?.date,line:shift?.line,sh:shift?.sh,used:+val("f_used")};
+ }
  if(kind==="returns"){
   if(isOtaForm)return{f:formFactory,truck:"",driver:"",ph:"",wb:"",qty:+val("f_qty"),dt:val("f_dt"),eta:""};
   return{f:val("f_f"),truck:val("f_truck").toUpperCase(),driver:val("f_driver"),ph:val("f_ph"),wb:val("f_wb"),qty:+val("f_qty"),dt:val("f_dt"),eta:val("f_eta")};
