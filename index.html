@@ -3,12 +3,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>
 :root{--bg:#f6f5f1;--card:#fff;--tx:#1d1d1b;--mu:#6b6a65;--bd:#e0ded6;--ac:#c2410c;--ok:#15803d;--bad:#b91c1c;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root[data-theme="light"]{color-scheme:light}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171716;--card:#222220;--tx:#efeee9;--mu:#9a988f;--bd:#383835;--ac:#fb923c;--ok:#4ade80;--bad:#f87171;color-scheme:dark}}
 :root[data-theme="dark"]{--bg:#171716;--card:#222220;--tx:#efeee9;--mu:#9a988f;--bd:#383835;--ac:#fb923c;--ok:#4ade80;--bad:#f87171;color-scheme:dark}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
 main{max-width:1000px;margin:0 auto;padding:16px}
 h1{font-size:20px;margin:0 0 12px}h2{font-size:15px;margin:18px 0 8px}
+.app-header{margin-bottom:12px}
+.app-header h1{margin:0}
+.theme-switch{position:fixed;top:12px;right:12px;z-index:10;display:flex;gap:4px;padding:3px;border:1px solid var(--bd);background:var(--card);border-radius:9px}
+.theme-switch button{padding:6px 10px;border:0;border-radius:6px;background:transparent;color:var(--tx);font:inherit;font-size:13px;cursor:pointer}
+.theme-switch button[aria-pressed="true"]{background:var(--ac);color:#fff}
 nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
 nav button{padding:8px 12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:8px;cursor:pointer}
 nav button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
@@ -93,7 +99,7 @@ body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:borde
  .return-rate-card{padding:9px}
  .return-rate-card strong{font-size:22px}
 }
-</style></head><body class="login-mode"><main>
+</style></head><body class="login-mode"><div class="theme-switch" role="group" aria-label="Color theme"><button id="themeLight" type="button" aria-pressed="false">Light</button><button id="themeDark" type="button" aria-pressed="false">Dark</button></div><main>
 <section id="login"><div class="login-logo"><img src="dufil-company-logo.png" alt="Dufil Prima Foods logo" width="200" height="200"></div><div class="login-card">
 <div class="login-panel">
 <h2>Log in</h2>
@@ -104,7 +110,7 @@ body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:borde
 <button class="go">Log in</button>
  </form></div></div></section>
 <div id="app" hidden>
-<h1>Carton Return Tracker</h1>
+ <header class="app-header"><h1>Carton Return Tracker</h1></header>
 <div id="msg" class="mu"></div>
 <nav id="nav" hidden></nav><div id="view" hidden></div>
 </div></main>
@@ -114,6 +120,17 @@ const C=["dispatch","shifts","returns","receipts"];
 let D={dispatch:[],shifts:[],returns:[],receipts:[]},tab="Dashboard",user=null,token=sessionStorage.getItem("carton_token")||"",thr=500;
 let selectedFactory=F[0];
 const $=s=>document.querySelector(s);
+const storedTheme=localStorage.getItem("carton_theme");
+const initialTheme=storedTheme==="light"||storedTheme==="dark"?storedTheme:(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");
+function setTheme(theme,persist=false){
+ document.documentElement.dataset.theme=theme;
+ $("#themeLight").setAttribute("aria-pressed",String(theme==="light"));
+ $("#themeDark").setAttribute("aria-pressed",String(theme==="dark"));
+ if(persist)localStorage.setItem("carton_theme",theme);
+}
+setTheme(initialTheme);
+$("#themeLight").onclick=()=>setTheme("light",true);
+$("#themeDark").onclick=()=>setTheme("dark",true);
 const sum=(a,k)=>a.reduce((s,x)=>s+(+x[k]||0),0);
 const storageMessage=action=>`${action}.`;
 const now=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);
@@ -193,6 +210,7 @@ function truckEtaSummary(factory){
 }
 const field=(id,l,t="text",ex="")=>`<label>${l}<input id="${id}" type="${t}" ${ex}></label>`;
 const truckNumberField=()=>field("f_truck","Truck no","text",'autocapitalize="characters" autocomplete="off" spellcheck="false" pattern="[A-Za-z0-9]*"');
+const driverNameField=()=>field("f_driver","Driver name","text",'pattern="[^0-9]*" autocomplete="off"');
 const phoneNumberField=()=>field("f_ph","Driver phone","text",'inputmode="numeric" pattern="[0-9]*" autocomplete="off"');
 const wholeNumberField=(id,label,required=false)=>field(id,label,"text",`inputmode="numeric" pattern="[0-9]*" autocomplete="off"${required?" required":""}`);
 const waybillField=()=>wholeNumberField("f_wb","Waybill no");
@@ -208,7 +226,7 @@ function formHTML(kind){
  if(kind==="shifts")return field("f_date","Date","date",`value="${now().slice(0,10)}"`)+factoryField()+lineSelectField(formFactory)+`<label>Shift<select id="f_sh"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>`+wholeNumberField("f_used","Total cartons consumed",true)+wholeNumberField("f_good","Good cartons",true)+wholeNumberField("f_bad","Bad cartons",true)+`<button class="go">Save shift</button>`;
  if(kind==="returns"){
   if(isOtaForm)return factoryField()+field("f_dt","Date & time","datetime-local",`value="${now()}" required`)+field("f_qty","Cartons returned","number","min=\"0\" step=\"1\" required")+`<button class="go">Log return</button>`;
-  return factoryField()+truckNumberField()+field("f_driver","Driver name")+phoneNumberField()+waybillField()+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
+  return factoryField()+truckNumberField()+driverNameField()+phoneNumberField()+waybillField()+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
  }
  if(kind==="receipts"){const current=editing?.kind==="receipts"?D.receipts.find(x=>x.id===editing.id):null;const o=D.returns.filter(x=>!D.receipts.some(c=>c.rid===x.id)||x.id===current?.rid).map(x=>`<option value="${escapeHTML(x.id)}">${escapeHTML(x.f)} | ${escapeHTML(x.truck)} | ${escapeHTML(x.wb)} | ${escapeHTML(x.qty)}</option>`).join("");
   return `<label>Truck arrived<select id="f_rid">${o}</select></label>`+calculatedNumberField("f_acc","Accepted cartons (calculated)")+wholeNumberField("f_rej","Rejected")+field("f_dt","Received","datetime-local",`value="${now()}"`)+`<button class="go">Save sorting</button>`}
@@ -288,6 +306,18 @@ function render(){
    input.setSelectionRange(position,position);
   };
  }
+ const driverNameInput=$("#f_driver");
+ if(driverNameInput){
+  driverNameInput.onbeforeinput=event=>{
+   if(event.inputType==="insertText"&&event.data&&/[0-9]/.test(event.data))event.preventDefault();
+  };
+  driverNameInput.oninput=()=>{
+   const caret=driverNameInput.selectionStart??driverNameInput.value.length;
+   const position=driverNameInput.value.slice(0,caret).replace(/[0-9]/g,"").length;
+   driverNameInput.value=driverNameInput.value.replace(/[0-9]/g,"");
+   driverNameInput.setSelectionRange(position,position);
+  };
+ }
  const truckInput=$("#f_truck");if(truckInput)truckInput.oninput=()=>{
   const caret=truckInput.selectionStart??truckInput.value.length;
   const position=truckInput.value.slice(0,caret).replace(/[^a-z0-9]/gi,"").length;
@@ -298,7 +328,7 @@ function render(){
   const record=D[kind].find(item=>item.id===editing.id);
   const isOtaRecord=record?.f==="OTA";
   const fields={dispatch:isOtaRecord?(user.role==="seasoning"?{f:"f_f",dt:"f_dt",qty:"f_qty"}:{dt:"f_dt",qty:"f_qty"}):{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},shifts:{f:"f_f",date:"f_date",line:"f_line",sh:"f_sh",used:"f_used",good:"f_good",bad:"f_bad"},returns:isOtaRecord?(user.role==="seasoning"?{f:"f_f",dt:"f_dt",qty:"f_qty"}:{dt:"f_dt",qty:"f_qty"}):{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
-  if(record)for(const [key,id] of Object.entries(fields)){const input=$("#"+id);if(input)input.value=key==="truck"?String(record[key]??"").toUpperCase().replace(/[^A-Z0-9]/g,""):record[key]??""}
+  if(record)for(const [key,id] of Object.entries(fields)){const input=$("#"+id);if(input)input.value=key==="truck"?String(record[key]??"").toUpperCase().replace(/[^A-Z0-9]/g,""):key==="driver"?String(record[key]??"").replace(/[0-9]/g,""):record[key]??""}
   const submit=$("#frm .go");if(submit)submit.textContent="Save changes";
  }
  let shiftCartonInputMode=null;

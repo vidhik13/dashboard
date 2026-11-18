@@ -183,6 +183,8 @@ export default async function handler(req, res) {
         return res.status(400).send("Waybill number must contain digits only");
       if (kind === "returns" && (typeof record.ph !== "string" || !/^\d*$/.test(record.ph)))
         return res.status(400).send("Driver phone must contain digits only");
+      if (kind === "returns" && (typeof record.driver !== "string" || /[0-9]/.test(record.driver)))
+        return res.status(400).send("Driver name must not contain numbers");
     }
     if (kind === "shifts") {
       if (!Number.isSafeInteger(record.line) || !isValidFactoryLine(record.f, record.line))
@@ -293,6 +295,8 @@ export default async function handler(req, res) {
         return res.status(400).send("Waybill number must contain digits only");
       if (kind === "returns" && (typeof record.ph !== "string" || !/^\d*$/.test(record.ph)))
         return res.status(400).send("Driver phone must contain digits only");
+      if (kind === "returns" && (typeof record.driver !== "string" || /[0-9]/.test(record.driver)))
+        return res.status(400).send("Driver name must not contain numbers");
     }
     if (kind === "shifts") {
       if (!Number.isSafeInteger(record.line) || !isValidFactoryLine(record.f, record.line))
