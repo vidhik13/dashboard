@@ -300,7 +300,7 @@ function formHTML(kind){
   if(isOtaForm)return factoryField()+field("f_dt","Date & time","datetime-local",`value="${now()}" required`)+field("f_qty","Cartons returned","number","min=\"0\" step=\"1\" required")+`<button class="go">Log return</button>`;
   return factoryField()+truckNumberField()+driverNameField()+phoneNumberField()+waybillField()+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
  }
- if(kind==="receipts"){const current=editing?.kind==="receipts"?D.receipts.find(x=>x.id===editing.id):null;const o=D.returns.filter(x=>!D.receipts.some(c=>c.rid===x.id)||x.id===current?.rid).map(x=>`<option value="${escapeHTML(x.id)}">${escapeHTML(x.f)} | ${escapeHTML(x.truck)} | ${escapeHTML(x.wb)} | ${escapeHTML(x.qty)}</option>`).join("");
+ if(kind==="receipts"){const current=editing?.kind==="receipts"?D.receipts.find(x=>x.id===editing.id):null;const o=D.returns.filter(x=>!D.receipts.some(c=>c.rid===x.id)||x.id===current?.rid).map(x=>`<option value="${escapeHTML(x.id)}">${escapeHTML(x.f)} | ${x.f==="OTA"?`${escapeHTML(x.qty)} cartons`:`${escapeHTML(x.truck)} | ${escapeHTML(x.wb)} | ${escapeHTML(x.qty)}`}</option>`).join("");
   return `<label>Truck arrived<select id="f_rid">${o}</select></label>`+calculatedNumberField("f_acc","Accepted cartons (calculated)")+wholeNumberField("f_rej","Rejected")+field("f_dt","Received","datetime-local",`value="${now()}"`)+`<button class="go">Save sorting</button>`}
 }
 function rec(kind){
@@ -329,7 +329,7 @@ const COLS={dispatch:[["dt","Date/time"],["eta","ETA"],["f","Factory"],["truck",
 function rows(kind,readOnly=false){
  let a=D[kind].slice();
  if(kind==="returns")a=a.map(x=>({...x,status:D.receipts.some(c=>c.rid===x.id)?"Received":"In transit"}));
- if(kind==="receipts")a=a.map(x=>{const r=D.returns.find(y=>y.id===x.rid)||{};return{...x,f:r.f,truck:r.truck,wb:r.wb,qty:r.qty}});
+ if(kind==="receipts")a=a.map(x=>{const r=D.returns.find(y=>y.id===x.rid)||{};return{...x,f:r.f,truck:r.f==="OTA"?"":r.truck,wb:r.f==="OTA"?"":r.wb,qty:r.qty}});
  a.sort((x,y)=>String(y.dt||y.date||"").localeCompare(String(x.dt||x.date||"")));
  const isOtaSimpleTransport=kind==="dispatch"&&user.role!=="seasoning"&&user.factory==="OTA";
  const isSeasoningMonthlyDispatch=kind==="dispatch"&&user.role==="seasoning";

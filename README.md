@@ -98,7 +98,9 @@ factories, and records monthly dispatched carton totals by factory without
 truck or waybill details. OTA dispatch forms omit truck and waybill details;
 OTA return tracking records only date/time and carton quantity. PHC and Kaduna
 return tracking include truck, driver, phone, waybill, and ETA details. OTA
-can view dispatch entries, while Seasoning manages dispatches.
+return entries also omit truck and waybill in Seasoning's sorting-receipt
+selector and table. OTA can view dispatch entries, while Seasoning manages
+dispatches.
 Factory and Seasoning dashboards show return totals and rates and carton
 acceptance for MTD, last month, and YTD. Factory dashboards retain the recent
 returns list.
