@@ -13,8 +13,8 @@ for dispatches, shifts, returns, receipts, and settings.
 4. In Vercel **Settings → Environment Variables**, add:
    - `SUPABASE_URL`: the Supabase project URL.
    - `SUPABASE_SERVICE_ROLE_KEY`: the project’s `service_role` key.
-5. Keep `AUTH_SECRET` and the separate `AUTH_PASSWORD_ABA`,
-   `AUTH_PASSWORD_KADUNA`, `AUTH_PASSWORD_OTA`, `AUTH_PASSWORD_PHC`, and
+5. Keep `AUTH_SECRET` and the separate `AUTH_PASSWORD_KADUNA`,
+   `AUTH_PASSWORD_OTA`, `AUTH_PASSWORD_PHC`, and
    `AUTH_PASSWORD_SEASONING` variables configured in Vercel.
 6. Apply variables to Production (and Preview if needed), redeploy, then sign
    in as Seasoning and verify that the dashboard loads.
@@ -73,8 +73,8 @@ audience.
 ## Data and access
 
 The database stores records in `carton_records` and the alert threshold in
-`carton_settings`. Shift lines are limited by factory: OTA 1–6, PHC 1–9,
-KADUNA 1–6, and ABA 1–2. Shift numbers are 1, 2, and 3.
+`carton_settings`. Shift lines are limited by factory: OTA 1–6, PHC 1–9, and
+KADUNA 1–6. Shift numbers are 1, 2, and 3.
 
 Factory accounts can access their own records. Seasoning can manage all
 factories. OTA dispatch and return forms omit truck, driver, and waybill

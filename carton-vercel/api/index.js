@@ -8,12 +8,11 @@ import {
   writeSettings,
 } from "./supabase-store.js";
 const KINDS = ["dispatch", "shifts", "returns", "receipts"];
-const FACTORIES = ["OTA", "PHC", "KADUNA", "ABA"];
+const FACTORIES = ["OTA", "PHC", "KADUNA"];
 const FACTORY_LINES = {
   OTA: [1, 2, 3, 4, 5, 6],
   PHC: [1, 2, 3, 4, 5, 6, 7, 8, 9],
   KADUNA: [1, 2, 3, 4, 5, 6],
-  ABA: [1, 2],
 };
 
 function safeEqual(a, b) {
@@ -89,6 +88,12 @@ function normalizeFactoryRecord(record) {
   return record.f === "OA" ? { ...record, f: "OTA" } : record;
 }
 
+function activeFactoryRecords(records) {
+  return records
+    .map(normalizeFactoryRecord)
+    .filter(record => FACTORIES.includes(record.f));
+}
+
 function hasNonNegativeIntegers(record, fields) {
   return fields.every(field => Number.isSafeInteger(record[field]) && record[field] >= 0);
 }
@@ -102,11 +107,15 @@ async function readDashboardData() {
     ...KINDS.map(kind => readRecords(kind)),
     readSettings(),
   ]);
+  const activeDispatch = activeFactoryRecords(dispatch);
+  const activeShifts = activeFactoryRecords(shifts);
+  const activeReturns = activeFactoryRecords(returns);
+  const activeReturnIds = new Set(activeReturns.map(record => record.id));
   return {
-    dispatch: dispatch.map(normalizeFactoryRecord),
-    shifts: shifts.map(normalizeFactoryRecord),
-    returns: returns.map(normalizeFactoryRecord),
-    receipts,
+    dispatch: activeDispatch,
+    shifts: activeShifts,
+    returns: activeReturns,
+    receipts: receipts.filter(record => activeReturnIds.has(record.rid)),
     settings: settings || null,
   };
 }
@@ -124,7 +133,11 @@ export async function excelExportHandler(req, res) {
   if (!KINDS.includes(kind)) return res.status(400).send("Select a valid export kind.");
 
   res.setHeader("Cache-Control", "no-store");
-  return res.status(200).json(await readRecords(kind));
+  const records = await readRecords(kind);
+  if (["dispatch", "shifts", "returns"].includes(kind))
+    return res.status(200).json(activeFactoryRecords(records));
+  const activeReturnIds = new Set(activeFactoryRecords(await readRecords("returns")).map(record => record.id));
+  return res.status(200).json(records.filter(record => activeReturnIds.has(record.rid)));
 }
 
 export default async function handler(req, res) {

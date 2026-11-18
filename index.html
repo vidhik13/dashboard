@@ -45,14 +45,14 @@ nav button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
 .return-rate-card small{color:var(--mu);font-size:12px}
 .return-rate-card .return-rate{margin-top:5px;padding-top:7px;border-top:1px solid var(--bd);color:var(--mu);font-size:12px}
 .return-rate-card .return-rate b{color:var(--ac);font-size:14px}
-.factory-total{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0;padding:14px;background:var(--bg);border:1px solid var(--bd);border-radius:10px}
-.factory-total strong{font-size:clamp(20px,2.4vw,30px);line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap}
 .factory-metrics-heading{margin:16px 0 8px}
 .factory-metrics{display:grid;grid-auto-columns:minmax(100px,1fr);grid-auto-flow:column;grid-template-columns:none;gap:8px;overflow-x:auto}
 .factory-metric{min-width:0;padding:9px;background:var(--bg);border-radius:8px}
 .factory-metric span{display:block;color:var(--mu);font-size:12px}
 .factory-metric strong{display:block;margin-top:3px;font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .factory-metric small{display:block;margin-top:2px;color:var(--mu);font-size:11px}
+.factory-total{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0;padding:14px;background:var(--bg);border:1px solid var(--bd);border-radius:10px}
+.factory-total strong{font-size:clamp(20px,2.4vw,30px);line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap}
 .factory-acceptance{margin-top:14px;padding-top:12px;border-top:1px solid var(--bd)}
 .acceptance-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .acceptance-metric{padding:10px;background:var(--bg);border-radius:8px}
@@ -105,7 +105,7 @@ body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:borde
 <h2>Log in</h2>
 <div id="loginMsg" role="status" aria-live="polite"></div>
 <form id="loginForm">
-<label>Plant<select id="plant" required><option value="">Select plant</option><option value="ABA">ABA</option><option value="KADUNA">KADUNA</option><option value="OTA">OTA</option><option value="PHC">PHC</option><option value="SEASONING">Seasoning</option></select></label>
+<label>Plant<select id="plant" required><option value="">Select plant</option><option value="KADUNA">KADUNA</option><option value="OTA">OTA</option><option value="PHC">PHC</option><option value="SEASONING">Seasoning</option></select></label>
 <label>Password<input id="password" type="password" autocomplete="current-password" required></label>
 <button class="go">Log in</button>
  </form></div></div></section>
@@ -115,7 +115,7 @@ body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:borde
 <nav id="nav" hidden></nav><div id="view" hidden></div>
 </div></main>
 <script>
-const F=["OTA","PHC","KADUNA","ABA"];
+const F=["OTA","PHC","KADUNA"];
 const C=["dispatch","shifts","returns","receipts"];
 let D={dispatch:[],shifts:[],returns:[],receipts:[]},tab="Dashboard",user=null,token=sessionStorage.getItem("carton_token")||"",thr=500;
 let selectedFactory=F[0];
@@ -137,7 +137,7 @@ const now=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOStrin
 const escapeHTML=t=>String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=t=>t?escapeHTML(String(t).replace("T"," ")):"";
 let editing=null;
-const FACTORY_LINE_OPTIONS={OTA:[1,2,3,4,5,6],PHC:[1,2,3,4,5,6,7,8,9],KADUNA:[1,2,3,4,5,6],ABA:[1,2]};
+const FACTORY_LINE_OPTIONS={OTA:[1,2,3,4,5,6],PHC:[1,2,3,4,5,6,7,8,9],KADUNA:[1,2,3,4,5,6]};
 const factoryField=()=>user.role==="seasoning"?`<label>Factory<select id="f_f">${F.map(f=>`<option${f===selectedFactory?" selected":""}>${f}</option>`).join("")}</select></label>`:`<input id="f_f" type="hidden" value="${user.factory}">`;
 const lineSelectField=(factory=selectedFactory,currentValue="")=>{
  const choices=FACTORY_LINE_OPTIONS[factory]||[];
@@ -168,6 +168,7 @@ function stats(f){
   &&r.some(returnRecord=>returnRecord.id===receipt.rid)
  ),"acc");
  const acceptedThisMonth=acceptedForPeriod(month);
+ const acceptedLastMonth=acceptedForPeriod(lastMonth);
  const acceptedYtd=acceptedForPeriod(year);
  return{sent:sum(d,"qty"),used:sum(s,"used"),bad:sum(s,"bad"),good,returned:sum(r,"qty"),pile:good-sum(r,"qty"),
   returnMonth:sentThisMonth?returnedThisMonth/sentThisMonth*100:null,
@@ -177,8 +178,10 @@ function stats(f){
   returnYtd:sentYtd?returnedYtd/sentYtd*100:null,
   returnedYtd,
   acceptedThisMonth,
+  acceptedLastMonth,
   acceptedYtd,
   acceptanceMonth:sentThisMonth?acceptedThisMonth/sentThisMonth*100:null,
+  acceptanceLastMonth:sentLastMonth?acceptedLastMonth/sentLastMonth*100:null,
   acceptanceYtd:sentYtd?acceptedYtd/sentYtd*100:null,
   trucksInTransit:r.filter(x=>!D.receipts.some(c=>c.rid===x.id)).length,
   transit:r.filter(x=>!D.receipts.some(c=>c.rid===x.id)).reduce((a,x)=>a+(+x.qty||0),0)}}
@@ -191,11 +194,14 @@ function returnRateSummary(s){
  const periodCard=(label,quantity,rate)=>`<div class="return-rate-card"><span>${label}</span><strong>${quantity.toLocaleString()}</strong><small>cartons returned</small><div class="return-rate">Return rate <b>${rate===null?"—":percent(rate)}</b>${rate===null?" · no dispatches yet":" · of cartons sent"}</div></div>`;
  return `<section class="return-performance"><h3>Cartons returned</h3><div class="return-rate-grid">${periodCard(`MTD · ${month} ${year}`,s.returnedThisMonth,s.returnMonth)}${periodCard(`Last month · ${lastMonth}`,s.returnedLastMonth,s.returnLastMonth)}${periodCard(`YTD · ${year}`,s.returnedYtd,s.returnYtd)}</div></section>`;
 }
-function acceptanceSummary(s){
+function acceptanceSummary(s,showLastMonth=false){
  const today=new Date();
  const month=today.toLocaleString(undefined,{month:"long"});
+ const lastMonth=new Date(today.getFullYear(),today.getMonth()-1,1).toLocaleString(undefined,{month:"long"});
  const year=today.getFullYear();
- return `<section class="factory-acceptance"><h3>Carton acceptance at Seasoning</h3><div class="acceptance-grid"><div class="acceptance-metric"><span>MTD · ${month} ${year}</span><strong>${percent(s.acceptanceMonth)}</strong><small>${s.acceptedThisMonth.toLocaleString()} cartons accepted of dispatched</small></div><div class="acceptance-metric"><span>YTD · ${year}</span><strong>${percent(s.acceptanceYtd)}</strong><small>${s.acceptedYtd.toLocaleString()} cartons accepted of dispatched</small></div></div></section>`;
+ if(!showLastMonth)return `<section class="factory-acceptance"><h3>Carton acceptance at Seasoning</h3><div class="acceptance-grid"><div class="acceptance-metric"><span>MTD · ${month} ${year}</span><strong>${percent(s.acceptanceMonth)}</strong><small>${s.acceptedThisMonth.toLocaleString()} cartons accepted of dispatched</small></div><div class="acceptance-metric"><span>YTD · ${year}</span><strong>${percent(s.acceptanceYtd)}</strong><small>${s.acceptedYtd.toLocaleString()} cartons accepted of dispatched</small></div></div></section>`;
+ const periodCard=(label,quantity,rate)=>`<div class="return-rate-card"><span>${label}</span><strong>${quantity.toLocaleString()}</strong><small>cartons accepted</small><div class="return-rate">Acceptance rate <b>${rate===null?"—":percent(rate)}</b>${rate===null?" · no dispatches yet":" · of cartons sent"}</div></div>`;
+ return `<section class="return-performance"><h3>Accepted by Seasoning</h3><div class="return-rate-grid">${periodCard(`MTD · ${month} ${year}`,s.acceptedThisMonth,s.acceptanceMonth)}${periodCard(`Last month · ${lastMonth}`,s.acceptedLastMonth,s.acceptanceLastMonth)}${periodCard(`YTD · ${year}`,s.acceptedYtd,s.acceptanceYtd)}</div></section>`;
 }
 function truckEtaSummary(factory){
  const dispatches=D.dispatch.filter(x=>x.f===factory&&x.eta);
@@ -275,13 +281,15 @@ function render(){
  const kind={"Seasoning dispatch":"dispatch","Noodle shift log":"shifts","Return truck":"returns","Return carton tracking":"returns","Return trucks tracking":"returns","Sorting at seasoning":"receipts"}[tab];
  let h="";
  if(!kind){
-  const factories=user.role==="seasoning"?F:[user.factory];
   const isSeasoning=user.role==="seasoning";
-  const factoryCards=factories.map(f=>{const s=stats(f),al=s.pile>=thr,ota=f==="OTA";
+  const factories=isSeasoning?[selectedFactory]:[user.factory];
+  const factoryCards=factories.map(f=>{const s=stats(f),al=s.pile>=thr;
+   const ota=f==="OTA";
    const transit=ota?`<div class="factory-metric"><span>Cartons in transit</span><strong>${s.transit.toLocaleString()}</strong></div>`:`<div class="factory-metric"><span>Trucks in transit</span><strong>${s.trucksInTransit.toLocaleString()}</strong><small>${s.transit.toLocaleString()} cartons</small></div>`;
-   return `<article class="card factory-card ${al?"alert":""}"><div class="factory-card-head"><strong>${f}</strong>${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}</div>${returnRateSummary(s)}<div class="factory-total"><span class="mu">Good cartons waiting to return</span><strong>${s.pile.toLocaleString()}</strong></div><h3 class="factory-metrics-heading">Carton flow · all time</h3><div class="factory-metrics"><div class="factory-metric"><span>Cartons sent</span><strong>${s.sent.toLocaleString()}</strong></div><div class="factory-metric"><span>Cartons used</span><strong>${s.used.toLocaleString()}</strong></div><div class="factory-metric"><span>Bad cartons</span><strong>${s.bad.toLocaleString()}</strong></div><div class="factory-metric"><span>Cartons returned</span><strong>${s.returned.toLocaleString()}</strong></div>${transit}</div>${acceptanceSummary(s)}${isSeasoning?truckEtaSummary(f):""}</article>`;
+   const flow=isSeasoning?"":`<h3 class="factory-metrics-heading">Carton flow · all time</h3><div class="factory-metrics"><div class="factory-metric"><span>Cartons sent</span><strong>${s.sent.toLocaleString()}</strong></div><div class="factory-metric"><span>Cartons used</span><strong>${s.used.toLocaleString()}</strong></div><div class="factory-metric"><span>Bad cartons</span><strong>${s.bad.toLocaleString()}</strong></div><div class="factory-metric"><span>Cartons returned</span><strong>${s.returned.toLocaleString()}</strong></div>${transit}</div>`;
+   return `<article class="card factory-card ${al?"alert":""}"><div class="factory-card-head"><strong>${f}</strong>${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}</div>${isSeasoning?acceptanceSummary(s,true):""}${returnRateSummary(s)}<div class="factory-total"><span class="mu">Good cartons waiting to return</span><strong>${s.pile.toLocaleString()}</strong></div>${flow}${isSeasoning?"":acceptanceSummary(s)}${isSeasoning?truckEtaSummary(f):""}</article>`;
   }).join("");
-  h=(isSeasoning?`<section class="dashboard-tools"><label>Alert threshold (good cartons)<input id="thr" type="number" min="0" value="${thr}"></label></section>`:"")+`<div class="section-heading"><h2>${isSeasoning?"Factory overview":user.factory+" dashboard"}</h2>${isSeasoning?'<span class="mu">All 4 plants</span>':""}</div><div class="grid ${isSeasoning?"factory-grid":""}">${factoryCards}</div>`+(!isSeasoning?`<h2>${user.factory==="OTA"?"Recent carton returns":"Trucks on the way back"}</h2>${rows("returns")}`:"");
+  h=(isSeasoning?`<section class="dashboard-tools"><label>Factory<select id="dashboardFactory">${F.map(factory=>`<option value="${factory}"${factory===selectedFactory?" selected":""}>${factory}</option>`).join("")}</select></label><label>Alert threshold (good cartons)<input id="thr" type="number" min="0" value="${thr}"></label></section>`:"")+`<div class="section-heading"><h2>${isSeasoning?"Factory overview":user.factory+" dashboard"}</h2></div><div class="grid ${isSeasoning?"factory-grid":""}">${factoryCards}</div>`+(!isSeasoning?`<h2>${user.factory==="OTA"?"Recent carton returns":"Trucks on the way back"}</h2>${rows("returns")}`:"");
  }else{
   const isSeasoningReturnTracking=user.role==="seasoning"&&tab==="Return trucks tracking";
   const canUpdate=!isSeasoningReturnTracking&&(user.role==="seasoning"||["shifts","returns"].includes(kind));
@@ -289,6 +297,11 @@ function render(){
  }
  $("#view").innerHTML=h;
  const factorySelect=$("#f_f");
+ const dashboardFactorySelect=$("#dashboardFactory");
+ if(dashboardFactorySelect)dashboardFactorySelect.onchange=()=>{
+  selectedFactory=dashboardFactorySelect.value;
+  render();
+ };
  if(factorySelect&&factorySelect.tagName==="SELECT")factorySelect.onchange=()=>{
   const values=Object.fromEntries([...$("#frm").querySelectorAll("input,select")].filter(input=>!["f_f","f_line"].includes(input.id)).map(input=>[input.id,input.value]));
   selectedFactory=factorySelect.value;
