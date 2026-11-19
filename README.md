@@ -106,6 +106,9 @@ dispatches.
 Seasoning sorting records keep truck acceptance and sorting completion as
 separate dates. Accepted and rejected carton counts are entered manually and
 are not calculated from, or restricted by, the dispatched carton total.
+Truck acceptance can be logged before sorting starts. Those cartons appear in
+a pending-sorting list until the sorting completion date and manual carton
+counts are entered.
 Factory and Seasoning dashboards show return totals and rates and carton
 acceptance for MTD, last month, and YTD. Factory dashboards retain the recent
 returns list.

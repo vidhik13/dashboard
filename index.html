@@ -215,7 +215,7 @@ function stats(f){
  const sentYtd=sum(d.filter(x=>String(x.dt||"").slice(0,4)===year),"qty");
  const returnedYtd=sum(r.filter(x=>String(x.dt||"").slice(0,4)===year),"qty");
  const acceptedForPeriod=period=>sum(D.receipts.filter(receipt=>
-  String(receipt.acceptedAt||receipt.dt||"").slice(0,period.length)===period
+  isSortedReceipt(receipt)&&String(receipt.acceptedAt||receipt.dt||"").slice(0,period.length)===period
   &&r.some(returnRecord=>returnRecord.id===receipt.rid)
  ),"acc");
  const acceptedThisMonth=acceptedForPeriod(month);
@@ -272,6 +272,7 @@ const phoneNumberField=()=>field("f_ph","Driver phone","text",'inputmode="numeri
 const wholeNumberField=(id,label,required=false)=>field(id,label,"text",`inputmode="numeric" pattern="[0-9]*" autocomplete="off"${required?" required":""}`);
 const waybillField=()=>wholeNumberField("f_wb","Waybill no");
 const val=id=>$("#"+id).value;
+const isSortedReceipt=receipt=>Number.isSafeInteger(receipt.acc)&&Number.isSafeInteger(receipt.rej)&&typeof receipt.dt==="string"&&Boolean(receipt.dt);
 function formHTML(kind){
  const formFactory=user.role==="seasoning"?selectedFactory:user.factory;
  const isOtaForm=formFactory==="OTA";
@@ -316,8 +317,19 @@ function formHTML(kind){
   if(isOtaForm)return factoryField()+field("f_dt","Date & time","datetime-local",`value="${now()}" required`)+field("f_qty","Cartons returned","number","min=\"0\" step=\"1\" required")+`<button class="go">Log return</button>`;
   return factoryField()+truckNumberField()+driverNameField()+phoneNumberField()+waybillField()+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
  }
- if(kind==="receipts"){const current=editing?.kind==="receipts"?D.receipts.find(x=>x.id===editing.id):null;const o=D.returns.filter(x=>(user.role!=="seasoning"||x.f===selectedFactory)&&(!D.receipts.some(c=>c.rid===x.id)||x.id===current?.rid)).map(x=>`<option value="${escapeHTML(x.id)}">${escapeHTML(x.f)} | ${x.f==="OTA"?`${escapeHTML(x.qty)} cartons`:`${escapeHTML(x.truck)} | ${escapeHTML(x.wb)} | ${escapeHTML(x.qty)}`}</option>`).join("");
-  return `<label>${selectedFactory==="OTA"?"Return selected":"Truck arrived"}<select id="f_rid">${o}</select></label>`+field("f_acceptedAt",selectedFactory==="OTA"?"Accepted date":"Truck accepted","datetime-local",`value="${now()}" required`)+field("f_dt","Sorting completed","datetime-local",`value="${now()}" required`)+wholeNumberField("f_acc","Accepted cartons",true)+wholeNumberField("f_rej","Rejected cartons",true)+`<button class="go">Save sorting</button>`}
+ if(kind==="receipts"){
+  const current=editing?.kind==="receipts"?D.receipts.find(x=>x.id===editing.id):null;
+  const currentReturn=current&&D.returns.find(x=>x.id===current.rid);
+  const o=D.returns.filter(x=>(user.role!=="seasoning"||x.f===selectedFactory)&&(!D.receipts.some(c=>c.rid===x.id)||x.id===current?.rid)).map(x=>`<option value="${escapeHTML(x.id)}"${x.id===current?.rid?" selected":""}>${escapeHTML(x.f)} | ${x.f==="OTA"?`${escapeHTML(x.qty)} cartons`:`${escapeHTML(x.truck)} | ${escapeHTML(x.wb)} | ${escapeHTML(x.qty)}`}</option>`).join("");
+  const returnSelector=current
+   ?`<label>${currentReturn?.f==="OTA"?"Return selected":"Truck arrived"}<select id="f_rid" disabled>${o}</select></label>`
+   :`<label>${selectedFactory==="OTA"?"Return selected":"Truck arrived"}<select id="f_rid" required>${o}</select></label>`;
+  const acceptedDateLabel=(currentReturn?.f||selectedFactory)==="OTA"?"Accepted date":"Truck accepted";
+  const acceptanceDate=field("f_acceptedAt",acceptedDateLabel,"datetime-local",`value="${now()}" required`);
+  if(!current)return returnSelector+acceptanceDate+`<button class="go">Log truck acceptance</button>`;
+  if(!isSortedReceipt(current))return returnSelector+acceptanceDate+field("f_dt","Sorting completed","datetime-local",`value="${now()}" required`)+wholeNumberField("f_acc","Accepted cartons",true)+wholeNumberField("f_rej","Rejected cartons",true)+`<button class="go">Complete sorting</button>`;
+  return returnSelector+acceptanceDate+field("f_dt","Sorting completed","datetime-local",`value="${now()}" required`)+wholeNumberField("f_acc","Accepted cartons",true)+wholeNumberField("f_rej","Rejected cartons",true)+`<button class="go">Save changes</button>`;
+ }
 }
 function rec(kind){
  const formFactory=user.role==="seasoning"?selectedFactory:user.factory;
@@ -336,7 +348,9 @@ function rec(kind){
   if(isOtaForm)return{f:formFactory,truck:"",driver:"",ph:"",wb:"",qty:+val("f_qty"),dt:val("f_dt"),eta:""};
   return{f:val("f_f"),truck:$("#f_truck")?.value.toUpperCase()||"",driver:val("f_driver"),ph:$("#f_ph")?.value||"",wb:$("#f_wb")?.value||"",qty:+val("f_qty"),dt:val("f_dt"),eta:val("f_eta")};
  }
- return{rid:val("f_rid"),acceptedAt:val("f_acceptedAt"),acc:+val("f_acc"),rej:+val("f_rej"),dt:val("f_dt")};
+ const receipt={rid:val("f_rid"),acceptedAt:val("f_acceptedAt")};
+ if(editing?.kind==="receipts")Object.assign(receipt,{acc:+val("f_acc"),rej:+val("f_rej"),dt:val("f_dt")});
+ return receipt;
 }
 const COLS={dispatch:[["dt","Date/time"],["eta","ETA"],["f","Factory"],["truck","Truck"],["wb","Waybill"],["qty","Qty"]],
  shifts:[["date","Date"],["line","Line"],["sh","Shift"],["f","Factory"],["sorter","Sorter"],["used","Used"],["good","Good"],["bad","Bad"]],
@@ -346,7 +360,7 @@ function rows(kind,readOnly=false){
  let a=D[kind].slice();
  if(kind==="returns")a=a.map(x=>({...x,status:D.receipts.some(c=>c.rid===x.id)?"Received":"In transit"}));
  if(kind==="receipts"){
-  a=a.map(x=>{const r=D.returns.find(y=>y.id===x.rid)||{};return{...x,f:r.f,truck:r.f==="OTA"?"":r.truck,wb:r.f==="OTA"?"":r.wb,qty:r.qty}});
+  a=a.filter(isSortedReceipt).map(x=>{const r=D.returns.find(y=>y.id===x.rid)||{};return{...x,acceptedAt:x.acceptedAt||x.dt,f:r.f,truck:r.f==="OTA"?"":r.truck,wb:r.f==="OTA"?"":r.wb,qty:r.qty}});
   if(user.role==="seasoning")a=a.filter(record=>record.f===selectedFactory);
  }
  a.sort((x,y)=>String(y.dt||y.date||"").localeCompare(String(x.dt||x.date||"")));
@@ -388,7 +402,17 @@ function render(){
   const isSeasoningReceiptTracking=user.role==="seasoning"&&kind==="receipts";
   const canUpdate=!isSeasoningReturnTracking&&(user.role==="seasoning"||["shifts","returns"].includes(kind));
   const receiptFactoryFilter=isSeasoningReceiptTracking?`<section class="dashboard-tools"><label>Factory<select id="receiptFactory"${editing?.kind==="receipts"?" disabled":""}>${F.map(factory=>`<option value="${factory}"${factory===selectedFactory?" selected":""}>${factory}</option>`).join("")}</select></label></section>`:"";
-  h=receiptFactoryFilter+(canUpdate?`<form id="frm">${editing?.kind===kind?`<div style="grid-column:1/-1">Editing log <button type="button" class="edit" id="cancelEdit">Cancel</button></div>`:""}${formHTML(kind)}</form>`:"")+rows(kind,isSeasoningReturnTracking);
+  const receiptFactory=user.role==="seasoning"?selectedFactory:user.factory;
+  const pendingReceipts=kind==="receipts"?D.receipts.filter(receipt=>!isSortedReceipt(receipt)).map(receipt=>({...receipt,returnRecord:D.returns.find(item=>item.id===receipt.rid)})).filter(receipt=>receipt.returnRecord?.f===receiptFactory):[];
+  const pendingTotal=pendingReceipts.reduce((total,receipt)=>total+(Number(receipt.returnRecord.qty)||0),0);
+  const pendingColumns=receiptFactory==="OTA"?[["acceptedAt","Accepted date"],["returnFactory","Factory"],["pending","Pending cartons"]]:[["acceptedAt","Truck accepted"],["returnFactory","Factory"],["truck","Truck"],["wb","Waybill"],["pending","Pending cartons"]];
+  const pendingRows=pendingReceipts.map(receipt=>{
+   const values={...receipt,returnFactory:receipt.returnRecord.f,pending:Number(receipt.returnRecord.qty)||0,truck:receipt.returnRecord.truck,wb:receipt.returnRecord.wb};
+   const actions=`<button class="edit" data-log-action="edit" data-log-kind="receipts" data-log-id="${escapeHTML(receipt.id)}">Complete sorting</button><button class="delete" data-log-action="delete" data-log-kind="receipts" data-log-id="${escapeHTML(receipt.id)}">Delete</button>`;
+   return `<tr>${pendingColumns.map(([key])=>`<td>${fmt(key==="returnFactory"?normalizeFactoryName(values[key]):values[key])}</td>`).join("")}<td>${actions}</td></tr>`;
+  }).join("");
+  const pendingSorting=isSeasoningReceiptTracking?`<section><div class="section-heading"><h2>Pending cartons to be sorted</h2><strong>${pendingTotal.toLocaleString()}</strong></div><div class="tw"><table><tr>${pendingColumns.map(([,label])=>`<th>${label}</th>`).join("")}<th>Actions</th></tr>${pendingRows||`<tr><td class="mu" colspan="${pendingColumns.length+1}">No pending cartons</td></tr>`}</table></div></section>`:"";
+  h=receiptFactoryFilter+pendingSorting+(canUpdate?`<form id="frm">${editing?.kind===kind?`<div style="grid-column:1/-1">Editing log <button type="button" class="edit" id="cancelEdit">Cancel</button></div>`:""}${formHTML(kind)}</form>`:"")+rows(kind,isSeasoningReturnTracking);
  }
  $("#view").innerHTML=h;
  const factorySelect=$("#f_f");
@@ -441,8 +465,8 @@ function render(){
   const record=D[kind].find(item=>item.id===editing.id);
   const isOtaRecord=record?.f==="OTA";
   const fields={dispatch:user.role==="seasoning"?{f:"f_f",dt:"f_month",qty:"f_qty"}:isOtaRecord?{dt:"f_dt",qty:"f_qty"}:{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},shifts:user.role==="sorting"?{f:"f_f",date:"f_date",line:"f_line",sh:"f_sh",good:"f_good",bad:"f_bad",sorter:"f_sorter"}:{f:"f_f",date:"f_date",line:"f_line",sh:"f_sh",used:"f_used"},returns:isOtaRecord?{f:"f_f",qty:"f_qty",dt:"f_dt"}:{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acceptedAt:"f_acceptedAt",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
-  if(record)for(const [key,id] of Object.entries(fields)){const input=$("#"+id);if(input)input.value=key==="truck"?String(record[key]??"").toUpperCase().replace(/[^A-Z0-9]/g,""):key==="driver"?String(record[key]??"").replace(/[0-9]/g,""):id==="f_month"?String(record[key]??"").slice(0,7):record[key]??""}
-  const submit=$("#frm .go");if(submit)submit.textContent="Save changes";
+  if(record)for(const [key,id] of Object.entries(fields)){const input=$("#"+id);if(input){const value=key==="acceptedAt"?record.acceptedAt||record.dt:record[key];input.value=key==="truck"?String(value??"").toUpperCase().replace(/[^A-Z0-9]/g,""):key==="driver"?String(value??"").replace(/[0-9]/g,""):id==="f_month"?String(value??"").slice(0,7):value??""}}
+  const submit=$("#frm .go");if(submit)submit.textContent=kind==="receipts"&&!isSortedReceipt(record)?"Complete sorting":"Save changes";
  }
  document.querySelectorAll("nav button[data-t]").forEach(b=>b.onclick=()=>{editing=null;tab=b.dataset.t;render()});
  const logout=$("#logout");logout.onclick=()=>{token="";user=null;applyThemeForCurrentUser();editing=null;sessionStorage.removeItem("carton_token");$("#loginMsg").textContent="You have been logged out.";setAuthenticated(false)};
