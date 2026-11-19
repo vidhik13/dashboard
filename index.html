@@ -124,7 +124,7 @@ body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:borde
 <script>
 const F=["OTA","PHC","KADUNA"];
 const C=["dispatch","shifts","returns","receipts"];
-let D={dispatch:[],shifts:[],returns:[],receipts:[]},tab="Dashboard",user=null,token=sessionStorage.getItem("carton_token")||"",thr=500;
+let D={dispatch:[],shifts:[],returns:[],receipts:[]},tab="Dashboard",user=null,token=sessionStorage.getItem("carton_token")||"",thr=500,renderedPeriod="";
 let selectedFactory=F[0];
 const $=s=>document.querySelector(s);
 const normalizeFactoryName=factory=>{
@@ -212,47 +212,47 @@ function stats(f){
  const returnedThisMonth=sum(r.filter(x=>String(x.dt||"").slice(0,7)===month),"qty");
  const sentLastMonth=sum(d.filter(x=>String(x.dt||"").slice(0,7)===lastMonth),"qty");
  const returnedLastMonth=sum(r.filter(x=>String(x.dt||"").slice(0,7)===lastMonth),"qty");
- const sentYtd=sum(d.filter(x=>String(x.dt||"").slice(0,4)===year),"qty");
- const returnedYtd=sum(r.filter(x=>String(x.dt||"").slice(0,4)===year),"qty");
+ const sentThisYear=sum(d.filter(x=>String(x.dt||"").slice(0,4)===year),"qty");
+ const returnedThisYear=sum(r.filter(x=>String(x.dt||"").slice(0,4)===year),"qty");
  const acceptedForPeriod=period=>sum(D.receipts.filter(receipt=>
   isSortedReceipt(receipt)&&String(receipt.acceptedAt||receipt.dt||"").slice(0,period.length)===period
   &&r.some(returnRecord=>returnRecord.id===receipt.rid)
  ),"acc");
  const acceptedThisMonth=acceptedForPeriod(month);
  const acceptedLastMonth=acceptedForPeriod(lastMonth);
- const acceptedYtd=acceptedForPeriod(year);
+ const acceptedThisYear=acceptedForPeriod(year);
  return{sent:sum(d,"qty"),used:sum(s,"used"),bad:sum(s,"bad"),good,returned:sum(r,"qty"),pile:good-sum(r,"qty"),
   returnMonth:sentThisMonth?returnedThisMonth/sentThisMonth*100:null,
   returnedThisMonth,
   returnLastMonth:sentLastMonth?returnedLastMonth/sentLastMonth*100:null,
   returnedLastMonth,
-  returnYtd:sentYtd?returnedYtd/sentYtd*100:null,
-  returnedYtd,
+  returnYear:sentThisYear?returnedThisYear/sentThisYear*100:null,
+  returnedThisYear,
   acceptedThisMonth,
   acceptedLastMonth,
-  acceptedYtd,
+  acceptedThisYear,
   acceptanceMonth:sentThisMonth?acceptedThisMonth/sentThisMonth*100:null,
   acceptanceLastMonth:sentLastMonth?acceptedLastMonth/sentLastMonth*100:null,
-  acceptanceYtd:sentYtd?acceptedYtd/sentYtd*100:null,
+  acceptanceYear:sentThisYear?acceptedThisYear/sentThisYear*100:null,
   trucksInTransit:r.filter(x=>!D.receipts.some(c=>c.rid===x.id)).length,
   transit:r.filter(x=>!D.receipts.some(c=>c.rid===x.id)).reduce((a,x)=>a+(+x.qty||0),0)}}
 const percent=value=>value===null?"—":`${value.toFixed(1)}%`;
 function returnRateSummary(s){
  const today=new Date();
- const month=today.toLocaleString(undefined,{month:"long"});
- const lastMonth=new Date(today.getFullYear(),today.getMonth()-1,1).toLocaleString(undefined,{month:"long"});
+ const month=today.toLocaleString(undefined,{month:"long",year:"numeric"});
+ const lastMonth=new Date(today.getFullYear(),today.getMonth()-1,1).toLocaleString(undefined,{month:"long",year:"numeric"});
  const year=today.getFullYear();
  const periodCard=(label,quantity,rate)=>`<div class="return-rate-card"><span>${label}</span><strong>${quantity.toLocaleString()}</strong><small>cartons returned</small><div class="return-rate">Return rate <b>${rate===null?"—":percent(rate)}</b>${rate===null?" · no dispatches yet":" · of cartons sent"}</div></div>`;
- return `<section class="return-performance"><h3>Cartons returned</h3><div class="return-rate-grid">${periodCard(`MTD · ${month} ${year}`,s.returnedThisMonth,s.returnMonth)}${periodCard(`Last month · ${lastMonth}`,s.returnedLastMonth,s.returnLastMonth)}${periodCard(`YTD · ${year}`,s.returnedYtd,s.returnYtd)}</div></section>`;
+ return `<section class="return-performance"><h3>Cartons returned</h3><div class="return-rate-grid">${periodCard(`MTD · ${month}`,s.returnedThisMonth,s.returnMonth)}${periodCard(`Last month · ${lastMonth}`,s.returnedLastMonth,s.returnLastMonth)}${periodCard(`Calendar year · ${year}`,s.returnedThisYear,s.returnYear)}</div></section>`;
 }
 function acceptanceSummary(s,showLastMonth=false){
  const today=new Date();
- const month=today.toLocaleString(undefined,{month:"long"});
- const lastMonth=new Date(today.getFullYear(),today.getMonth()-1,1).toLocaleString(undefined,{month:"long"});
+ const month=today.toLocaleString(undefined,{month:"long",year:"numeric"});
+ const lastMonth=new Date(today.getFullYear(),today.getMonth()-1,1).toLocaleString(undefined,{month:"long",year:"numeric"});
  const year=today.getFullYear();
- if(!showLastMonth)return `<section class="factory-acceptance"><h3>Carton acceptance at Seasoning</h3><div class="acceptance-grid"><div class="acceptance-metric"><span>MTD · ${month} ${year}</span><strong>${percent(s.acceptanceMonth)}</strong><small>${s.acceptedThisMonth.toLocaleString()} cartons accepted of dispatched</small></div><div class="acceptance-metric"><span>YTD · ${year}</span><strong>${percent(s.acceptanceYtd)}</strong><small>${s.acceptedYtd.toLocaleString()} cartons accepted of dispatched</small></div></div></section>`;
+ if(!showLastMonth)return `<section class="factory-acceptance"><h3>Carton acceptance at Seasoning</h3><div class="acceptance-grid"><div class="acceptance-metric"><span>MTD · ${month}</span><strong>${percent(s.acceptanceMonth)}</strong><small>${s.acceptedThisMonth.toLocaleString()} cartons accepted of dispatched</small></div><div class="acceptance-metric"><span>Calendar year · ${year}</span><strong>${percent(s.acceptanceYear)}</strong><small>${s.acceptedThisYear.toLocaleString()} cartons accepted of dispatched</small></div></div></section>`;
  const periodCard=(label,quantity,rate)=>`<div class="return-rate-card"><span>${label}</span><strong>${quantity.toLocaleString()}</strong><small>cartons accepted</small><div class="return-rate">Acceptance rate <b>${rate===null?"—":percent(rate)}</b>${rate===null?" · no dispatches yet":" · of cartons sent"}</div></div>`;
- return `<section class="return-performance"><h3>Accepted by Seasoning</h3><div class="return-rate-grid">${periodCard(`MTD · ${month} ${year}`,s.acceptedThisMonth,s.acceptanceMonth)}${periodCard(`Last month · ${lastMonth}`,s.acceptedLastMonth,s.acceptanceLastMonth)}${periodCard(`YTD · ${year}`,s.acceptedYtd,s.acceptanceYtd)}</div></section>`;
+ return `<section class="return-performance"><h3>Accepted by Seasoning</h3><div class="return-rate-grid">${periodCard(`MTD · ${month}`,s.acceptedThisMonth,s.acceptanceMonth)}${periodCard(`Last month · ${lastMonth}`,s.acceptedLastMonth,s.acceptanceLastMonth)}${periodCard(`Calendar year · ${year}`,s.acceptedThisYear,s.acceptanceYear)}</div></section>`;
 }
 function truckEtaSummary(factory){
  const dispatches=D.dispatch.filter(x=>x.f===factory&&x.eta);
@@ -379,8 +379,23 @@ function rows(kind,readOnly=false){
   return `<tr>${c.map(x=>{const value=r[x[0]]??"";const displayValue=isSeasoningMonthlyDispatch&&x[0]==="dt"?String(value).slice(0,7):x[0]==="f"?normalizeFactoryName(value):value;return `<td>${fmt(displayValue)}</td>`}).join("")}${action}</tr>`;
  }).join("");
  return `<div class="tw"><table><tr>${c.map(x=>`<th>${x[1]}</th>`).join("")}${actionHeader}</tr>${rowHTML||`<tr><td class="mu" colspan="${c.length+(canManage?1:0)}">No entries yet</td></tr>`}</table></div>`}
+function pendingSortingTable(factory,canComplete=false){
+ const pending=D.receipts.filter(receipt=>!isSortedReceipt(receipt)).map(receipt=>({...receipt,returnRecord:D.returns.find(item=>item.id===receipt.rid)})).filter(receipt=>receipt.returnRecord?.f===factory);
+ const total=pending.reduce((sum,receipt)=>sum+(Number(receipt.returnRecord.qty)||0),0);
+ const columns=factory==="OTA"?[["acceptedAt","Accepted date"],["factory","Factory"],["pending","Pending cartons"]]:[["acceptedAt","Truck accepted"],["factory","Factory"],["truck","Truck"],["wb","Waybill"],["pending","Pending cartons"]];
+ const body=pending.map(receipt=>{
+  const record={...receipt,factory:receipt.returnRecord.f,truck:receipt.returnRecord.truck,wb:receipt.returnRecord.wb,pending:Number(receipt.returnRecord.qty)||0};
+  const action=canComplete
+   ?`<button class="edit" data-log-action="edit" data-log-kind="receipts" data-log-id="${escapeHTML(receipt.id)}">Complete sorting</button><button class="delete" data-log-action="delete" data-log-kind="receipts" data-log-id="${escapeHTML(receipt.id)}">Delete</button>`
+   :"Awaiting sorting";
+  return `<tr>${columns.map(([key])=>`<td>${fmt(key==="factory"?normalizeFactoryName(record[key]):record[key])}</td>`).join("")}<td>${action}</td></tr>`;
+ }).join("");
+ const lastHeader=canComplete?"Actions":"Status";
+ return `<section><div class="section-heading"><h2>Accepted returns awaiting sorting</h2><strong>${total.toLocaleString()} cartons</strong></div><div class="tw"><table><tr>${columns.map(([,label])=>`<th>${label}</th>`).join("")}<th>${lastHeader}</th></tr>${body||`<tr><td class="mu" colspan="${columns.length+1}">No pending cartons</td></tr>`}</table></div></section>`;
+}
 function render(){
  if(!user)return;
+ renderedPeriod=now().slice(0,7);
  const tabs=user.role==="sorting"
   ?["Shift log"]
   :user.role==="seasoning"
@@ -396,22 +411,13 @@ function render(){
   const factoryCards=factories.map(f=>{const s=stats(f),al=s.pile>=thr;
    return `<article class="card factory-card ${al?"alert":""}"><div class="factory-card-head"><strong>${f}</strong>${al?'<span class="badge">Ready to return</span>':'<span class="badge ok">OK</span>'}</div>${acceptanceSummary(s,true)}${returnRateSummary(s)}<div class="factory-total"><span class="mu">Good cartons waiting to return</span><strong>${s.pile.toLocaleString()}</strong></div>${truckEtaSummary(f)}</article>`;
   }).join("");
-  h=(isSeasoning?`<section class="dashboard-tools"><label>Factory<select id="dashboardFactory">${F.map(factory=>`<option value="${factory}"${factory===selectedFactory?" selected":""}>${factory}</option>`).join("")}</select></label><label>Alert threshold (good cartons)<input id="thr" type="number" min="0" value="${thr}"></label></section>`:"")+`<div class="section-heading"><h2>${isSeasoning?"Factory overview":user.factory+" dashboard"}</h2></div><div class="grid ${isSeasoning?"factory-grid":""}">${factoryCards}</div>`+(!isSeasoning?`<h2>${user.factory==="OTA"?"Recent carton returns":"Trucks on the way back"}</h2>${rows("returns")}`:"");
+  h=(isSeasoning?`<section class="dashboard-tools"><label>Factory<select id="dashboardFactory">${F.map(factory=>`<option value="${factory}"${factory===selectedFactory?" selected":""}>${factory}</option>`).join("")}</select></label><label>Alert threshold (good cartons)<input id="thr" type="number" min="0" value="${thr}"></label></section>`:"")+`<div class="section-heading"><h2>${isSeasoning?"Factory overview":user.factory+" dashboard"}</h2></div><div class="grid ${isSeasoning?"factory-grid":""}">${factoryCards}</div>${pendingSortingTable(isSeasoning?selectedFactory:user.factory)}`+(!isSeasoning?`<h2>${user.factory==="OTA"?"Recent carton returns":"Trucks on the way back"}</h2>${rows("returns")}`:"");
  }else{
   const isSeasoningReturnTracking=user.role==="seasoning"&&tab==="Return trucks tracking";
   const isSeasoningReceiptTracking=user.role==="seasoning"&&kind==="receipts";
   const canUpdate=!isSeasoningReturnTracking&&(user.role==="seasoning"||["shifts","returns"].includes(kind));
   const receiptFactoryFilter=isSeasoningReceiptTracking?`<section class="dashboard-tools"><label>Factory<select id="receiptFactory"${editing?.kind==="receipts"?" disabled":""}>${F.map(factory=>`<option value="${factory}"${factory===selectedFactory?" selected":""}>${factory}</option>`).join("")}</select></label></section>`:"";
-  const receiptFactory=user.role==="seasoning"?selectedFactory:user.factory;
-  const pendingReceipts=kind==="receipts"?D.receipts.filter(receipt=>!isSortedReceipt(receipt)).map(receipt=>({...receipt,returnRecord:D.returns.find(item=>item.id===receipt.rid)})).filter(receipt=>receipt.returnRecord?.f===receiptFactory):[];
-  const pendingTotal=pendingReceipts.reduce((total,receipt)=>total+(Number(receipt.returnRecord.qty)||0),0);
-  const pendingColumns=receiptFactory==="OTA"?[["acceptedAt","Accepted date"],["returnFactory","Factory"],["pending","Pending cartons"]]:[["acceptedAt","Truck accepted"],["returnFactory","Factory"],["truck","Truck"],["wb","Waybill"],["pending","Pending cartons"]];
-  const pendingRows=pendingReceipts.map(receipt=>{
-   const values={...receipt,returnFactory:receipt.returnRecord.f,pending:Number(receipt.returnRecord.qty)||0,truck:receipt.returnRecord.truck,wb:receipt.returnRecord.wb};
-   const actions=`<button class="edit" data-log-action="edit" data-log-kind="receipts" data-log-id="${escapeHTML(receipt.id)}">Complete sorting</button><button class="delete" data-log-action="delete" data-log-kind="receipts" data-log-id="${escapeHTML(receipt.id)}">Delete</button>`;
-   return `<tr>${pendingColumns.map(([key])=>`<td>${fmt(key==="returnFactory"?normalizeFactoryName(values[key]):values[key])}</td>`).join("")}<td>${actions}</td></tr>`;
-  }).join("");
-  const pendingSorting=isSeasoningReceiptTracking?`<section><div class="section-heading"><h2>Pending cartons to be sorted</h2><strong>${pendingTotal.toLocaleString()}</strong></div><div class="tw"><table><tr>${pendingColumns.map(([,label])=>`<th>${label}</th>`).join("")}<th>Actions</th></tr>${pendingRows||`<tr><td class="mu" colspan="${pendingColumns.length+1}">No pending cartons</td></tr>`}</table></div></section>`:"";
+  const pendingSorting=isSeasoningReceiptTracking?pendingSortingTable(selectedFactory,true):"";
   h=receiptFactoryFilter+pendingSorting+(canUpdate?`<form id="frm">${editing?.kind===kind?`<div style="grid-column:1/-1">Editing log <button type="button" class="edit" id="cancelEdit">Cancel</button></div>`:""}${formHTML(kind)}</form>`:"")+rows(kind,isSeasoningReturnTracking);
  }
  $("#view").innerHTML=h;
@@ -538,7 +544,8 @@ async function load(){
   const d=await api("GET");C.forEach(k=>D[k]=(d[k]||[]).map(normalizeFactoryRecord));user=d.user;applyThemeForCurrentUser();
   if(d.settings&&d.settings.thr!=null)thr=d.settings.thr;
   setAuthenticated(true);$("#msg").textContent="";
-  const el=document.activeElement;if(!el||!/INPUT|SELECT/.test(el.tagName))render();
+  const el=document.activeElement,periodChanged=now().slice(0,7)!==renderedPeriod;
+  if(!el||!/INPUT|SELECT/.test(el.tagName)||(periodChanged&&tab==="Dashboard"))render();
  }catch(error){
   if(error.status===401){token="";user=null;applyThemeForCurrentUser();editing=null;sessionStorage.removeItem("carton_token");$("#loginMsg").textContent="Your session expired. Please sign in again.";setAuthenticated(false);return}
   $("#msg").textContent=error.message;

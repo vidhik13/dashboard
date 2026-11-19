@@ -109,9 +109,13 @@ are not calculated from, or restricted by, the dispatched carton total.
 Truck acceptance can be logged before sorting starts. Those cartons appear in
 a pending-sorting list until the sorting completion date and manual carton
 counts are entered.
-Factory and Seasoning dashboards show return totals and rates and carton
-acceptance for MTD, last month, and YTD. Factory dashboards retain the recent
-returns list.
+Factory and Seasoning dashboards compare monthly accepted/returned cartons
+with Seasoning dispatches for the same month. Annual figures use the January
+through December calendar year. The dashboard refreshes its period labels when
+the month changes and includes the year in the previous-month label. Factory
+dashboards also list accepted returns awaiting sorting, including pending
+carton totals; OTA omits truck and waybill details. Factory dashboards retain
+the recent returns list.
 Sessions expire after eight hours. To change a password, update the matching
 `AUTH_PASSWORD_*` value in Vercel and redeploy.
 
