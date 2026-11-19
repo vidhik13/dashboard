@@ -94,6 +94,14 @@ function isValidShiftDate(date) {
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
 }
 
+function isValidLocalDateTime(dateTime) {
+  if (typeof dateTime !== "string") return false;
+  const [date, time] = dateTime.split("T");
+  if (!isValidShiftDate(date) || !/^\d{2}:\d{2}$/.test(time || "")) return false;
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours < 24 && minutes < 60;
+}
+
 function validateShiftIdentity(record) {
   if (!isValidShiftDate(record.date))
     throw new InputError("Shift date must be a valid calendar date");
@@ -353,19 +361,16 @@ export default async function handler(req, res) {
     }
     if (kind === "returns" && !hasNonNegativeIntegers(record, ["qty"]))
       return res.status(400).send("Return truck cartons must be a whole number greater than or equal to zero");
-    if (kind === "receipts" && !hasNonNegativeIntegers(record, ["rej"]))
-      return res.status(400).send("Rejected cartons must be a whole number greater than or equal to zero");
+    if (kind === "receipts" && !hasNonNegativeIntegers(record, ["acc", "rej"]))
+      return res.status(400).send("Accepted and rejected cartons must be whole numbers greater than or equal to zero");
     if (kind === "receipts") {
       if (typeof record.rid !== "string" || !record.rid)
         return res.status(400).send("Invalid return truck");
+      if (!isValidLocalDateTime(record.acceptedAt) || !isValidLocalDateTime(record.dt))
+        return res.status(400).send("Truck acceptance and sorting dates must be valid");
       const returnRecord = await readRecord("returns", record.rid);
       if (!returnRecord)
         return res.status(400).send("Return truck not found");
-      if (!Number.isSafeInteger(returnRecord.qty) || returnRecord.qty < 0)
-        return res.status(400).send("Return truck has an invalid carton total");
-      if (record.rej > returnRecord.qty)
-        return res.status(400).send("Rejected cartons cannot exceed the return truck total");
-      record.acc = returnRecord.qty - record.rej;
     }
 
     await writeRecord(kind, record);
@@ -480,19 +485,16 @@ export default async function handler(req, res) {
     }
     if (kind === "returns" && !hasNonNegativeIntegers(record, ["qty"]))
       return res.status(400).send("Return truck cartons must be a whole number greater than or equal to zero");
-    if (kind === "receipts" && !hasNonNegativeIntegers(record, ["rej"]))
-      return res.status(400).send("Rejected cartons must be a whole number greater than or equal to zero");
+    if (kind === "receipts" && !hasNonNegativeIntegers(record, ["acc", "rej"]))
+      return res.status(400).send("Accepted and rejected cartons must be whole numbers greater than or equal to zero");
     if (kind === "receipts") {
       if (typeof record.rid !== "string" || !record.rid)
         return res.status(400).send("Invalid return truck");
+      if (!isValidLocalDateTime(record.acceptedAt) || !isValidLocalDateTime(record.dt))
+        return res.status(400).send("Truck acceptance and sorting dates must be valid");
       const returnRecord = await readRecord("returns", record.rid);
       if (!returnRecord)
         return res.status(400).send("Return truck not found");
-      if (!Number.isSafeInteger(returnRecord.qty) || returnRecord.qty < 0)
-        return res.status(400).send("Return truck has an invalid carton total");
-      if (record.rej > returnRecord.qty)
-        return res.status(400).send("Rejected cartons cannot exceed the return truck total");
-      record.acc = returnRecord.qty - record.rej;
     }
 
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);

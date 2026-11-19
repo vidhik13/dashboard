@@ -103,6 +103,9 @@ return tracking include truck, driver, phone, waybill, and ETA details. OTA
 return entries also omit truck and waybill in Seasoning's sorting-receipt
 selector and table. OTA can view dispatch entries, while Seasoning manages
 dispatches.
+Seasoning sorting records keep truck acceptance and sorting completion as
+separate dates. Accepted and rejected carton counts are entered manually and
+are not calculated from, or restricted by, the dispatched carton total.
 Factory and Seasoning dashboards show return totals and rates and carton
 acceptance for MTD, last month, and YTD. Factory dashboards retain the recent
 returns list.

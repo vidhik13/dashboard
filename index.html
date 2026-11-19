@@ -85,6 +85,12 @@ body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:borde
 #login form{grid-template-columns:1fr;gap:16px;padding:0;border:0;background:transparent}
 #login label{gap:7px;font-size:12px;font-weight:650;color:var(--tx)}
 #login input,#login select{min-height:48px;padding:10px 12px;border-color:var(--bd);border-radius:9px;background:var(--bg)}
+#login .password-control{position:relative;display:flex}
+#login .password-control input{width:100%;padding-right:52px}
+#login .password-toggle{position:absolute;top:50%;right:4px;display:grid;width:40px;height:40px;place-items:center;transform:translateY(-50%);border:0;border-radius:6px;background:transparent;color:var(--mu);cursor:pointer}
+#login .password-toggle:hover{color:var(--tx)}
+#login .password-toggle:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+#login .password-toggle svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8}
 #login input:focus,#login select:focus{outline:2px solid var(--ac);outline-offset:1px;border-color:var(--ac)}
 #login .go{min-height:48px;margin-top:4px;border-radius:9px;font-weight:700;letter-spacing:.01em}
 @media(max-width:680px){
@@ -107,7 +113,7 @@ body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:borde
 <form id="loginForm">
 <label>Plant<select id="plant" required><option value="">Select plant</option><option value="KADUNA">KADUNA</option><option value="OTA">OTA</option><option value="PHC">PHC</option><option value="SEASONING">Seasoning</option></select></label>
 <label id="teamField" hidden>Team<select id="team" required><option value="warehouse">WAREHOUSE</option><option value="sorting">SORTING TEAM</option></select></label>
-<label id="passwordField" hidden>Password<input id="password" type="password" autocomplete="current-password" required></label>
+<label id="passwordField" hidden>Password<span class="password-control"><input id="password" type="password" autocomplete="current-password" required><button id="passwordToggle" class="password-toggle" type="button" aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path id="passwordEyeSlash" d="m4 4 16 16" hidden/></svg></button></span></label>
 <button class="go">Log in</button>
  </form></div></div></section>
 <div id="app" hidden>
@@ -167,6 +173,13 @@ function applyThemeForCurrentUser(){
 applyThemeForCurrentUser();
 $("#themeLight").onclick=()=>setTheme("light",true);
 $("#themeDark").onclick=()=>setTheme("dark",true);
+$("#passwordToggle").onclick=()=>{
+ const password=$("#password"),visible=password.type==="password";
+ password.type=visible?"text":"password";
+ $("#passwordToggle").setAttribute("aria-label",visible?"Hide password":"Show password");
+ $("#passwordToggle").setAttribute("aria-pressed",String(visible));
+ $("#passwordEyeSlash").hidden=!visible;
+};
 const sum=(a,k)=>a.reduce((s,x)=>s+(+x[k]||0),0);
 const storageMessage=action=>`${action}.`;
 const now=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);
@@ -202,7 +215,7 @@ function stats(f){
  const sentYtd=sum(d.filter(x=>String(x.dt||"").slice(0,4)===year),"qty");
  const returnedYtd=sum(r.filter(x=>String(x.dt||"").slice(0,4)===year),"qty");
  const acceptedForPeriod=period=>sum(D.receipts.filter(receipt=>
-  String(receipt.dt||"").slice(0,period.length)===period
+  String(receipt.acceptedAt||receipt.dt||"").slice(0,period.length)===period
   &&r.some(returnRecord=>returnRecord.id===receipt.rid)
  ),"acc");
  const acceptedThisMonth=acceptedForPeriod(month);
@@ -258,7 +271,6 @@ const driverNameField=()=>field("f_driver","Driver name","text",'pattern="[^0-9]
 const phoneNumberField=()=>field("f_ph","Driver phone","text",'inputmode="numeric" pattern="[0-9]*" autocomplete="off"');
 const wholeNumberField=(id,label,required=false)=>field(id,label,"text",`inputmode="numeric" pattern="[0-9]*" autocomplete="off"${required?" required":""}`);
 const waybillField=()=>wholeNumberField("f_wb","Waybill no");
-const calculatedNumberField=(id,label)=>field(id,label,"text",'inputmode="numeric" readonly');
 const val=id=>$("#"+id).value;
 function formHTML(kind){
  const formFactory=user.role==="seasoning"?selectedFactory:user.factory;
@@ -304,8 +316,8 @@ function formHTML(kind){
   if(isOtaForm)return factoryField()+field("f_dt","Date & time","datetime-local",`value="${now()}" required`)+field("f_qty","Cartons returned","number","min=\"0\" step=\"1\" required")+`<button class="go">Log return</button>`;
   return factoryField()+truckNumberField()+driverNameField()+phoneNumberField()+waybillField()+field("f_qty","Cartons on truck","number")+field("f_dt","Dispatched","datetime-local",`value="${now()}"`)+field("f_eta","ETA","datetime-local")+`<button class="go">Log return truck</button>`;
  }
- if(kind==="receipts"){const current=editing?.kind==="receipts"?D.receipts.find(x=>x.id===editing.id):null;const o=D.returns.filter(x=>!D.receipts.some(c=>c.rid===x.id)||x.id===current?.rid).map(x=>`<option value="${escapeHTML(x.id)}">${escapeHTML(x.f)} | ${x.f==="OTA"?`${escapeHTML(x.qty)} cartons`:`${escapeHTML(x.truck)} | ${escapeHTML(x.wb)} | ${escapeHTML(x.qty)}`}</option>`).join("");
-  return `<label>Truck arrived<select id="f_rid">${o}</select></label>`+calculatedNumberField("f_acc","Accepted cartons (calculated)")+wholeNumberField("f_rej","Rejected")+field("f_dt","Received","datetime-local",`value="${now()}"`)+`<button class="go">Save sorting</button>`}
+ if(kind==="receipts"){const current=editing?.kind==="receipts"?D.receipts.find(x=>x.id===editing.id):null;const o=D.returns.filter(x=>(user.role!=="seasoning"||x.f===selectedFactory)&&(!D.receipts.some(c=>c.rid===x.id)||x.id===current?.rid)).map(x=>`<option value="${escapeHTML(x.id)}">${escapeHTML(x.f)} | ${x.f==="OTA"?`${escapeHTML(x.qty)} cartons`:`${escapeHTML(x.truck)} | ${escapeHTML(x.wb)} | ${escapeHTML(x.qty)}`}</option>`).join("");
+  return `<label>${selectedFactory==="OTA"?"Return selected":"Truck arrived"}<select id="f_rid">${o}</select></label>`+field("f_acceptedAt",selectedFactory==="OTA"?"Accepted date":"Truck accepted","datetime-local",`value="${now()}" required`)+field("f_dt","Sorting completed","datetime-local",`value="${now()}" required`)+wholeNumberField("f_acc","Accepted cartons",true)+wholeNumberField("f_rej","Rejected cartons",true)+`<button class="go">Save sorting</button>`}
 }
 function rec(kind){
  const formFactory=user.role==="seasoning"?selectedFactory:user.factory;
@@ -324,21 +336,26 @@ function rec(kind){
   if(isOtaForm)return{f:formFactory,truck:"",driver:"",ph:"",wb:"",qty:+val("f_qty"),dt:val("f_dt"),eta:""};
   return{f:val("f_f"),truck:$("#f_truck")?.value.toUpperCase()||"",driver:val("f_driver"),ph:$("#f_ph")?.value||"",wb:$("#f_wb")?.value||"",qty:+val("f_qty"),dt:val("f_dt"),eta:val("f_eta")};
  }
- return{rid:val("f_rid"),acc:+val("f_acc"),rej:+val("f_rej"),dt:val("f_dt")};
+ return{rid:val("f_rid"),acceptedAt:val("f_acceptedAt"),acc:+val("f_acc"),rej:+val("f_rej"),dt:val("f_dt")};
 }
 const COLS={dispatch:[["dt","Date/time"],["eta","ETA"],["f","Factory"],["truck","Truck"],["wb","Waybill"],["qty","Qty"]],
  shifts:[["date","Date"],["line","Line"],["sh","Shift"],["f","Factory"],["sorter","Sorter"],["used","Used"],["good","Good"],["bad","Bad"]],
  returns:[["dt","Dispatched"],["eta","ETA"],["f","Factory"],["truck","Truck"],["driver","Driver"],["ph","Phone"],["wb","Waybill"],["qty","Qty"],["status","Status"]],
- receipts:[["dt","Received"],["f","Factory"],["truck","Truck"],["wb","Waybill"],["qty","Sent"],["acc","Accepted"],["rej","Rejected"]]};
+ receipts:[["acceptedAt","Truck accepted"],["dt","Sorting completed"],["f","Factory"],["truck","Truck"],["wb","Waybill"],["qty","Sent"],["acc","Accepted"],["rej","Rejected"]]};
 function rows(kind,readOnly=false){
  let a=D[kind].slice();
  if(kind==="returns")a=a.map(x=>({...x,status:D.receipts.some(c=>c.rid===x.id)?"Received":"In transit"}));
- if(kind==="receipts")a=a.map(x=>{const r=D.returns.find(y=>y.id===x.rid)||{};return{...x,f:r.f,truck:r.f==="OTA"?"":r.truck,wb:r.f==="OTA"?"":r.wb,qty:r.qty}});
+ if(kind==="receipts"){
+  a=a.map(x=>{const r=D.returns.find(y=>y.id===x.rid)||{};return{...x,f:r.f,truck:r.f==="OTA"?"":r.truck,wb:r.f==="OTA"?"":r.wb,qty:r.qty}});
+  if(user.role==="seasoning")a=a.filter(record=>record.f===selectedFactory);
+ }
  a.sort((x,y)=>String(y.dt||y.date||"").localeCompare(String(x.dt||x.date||"")));
  const isOtaSimpleTransport=kind==="dispatch"&&user.role!=="seasoning"&&user.factory==="OTA";
  const isSeasoningMonthlyDispatch=kind==="dispatch"&&user.role==="seasoning";
  const isOtaSimpleReturn=kind==="returns"&&user.role!=="seasoning"&&user.factory==="OTA";
- const c=isSeasoningMonthlyDispatch?[["dt","Month"],["f","Factory"],["qty","Cartons sent"]]:isOtaSimpleTransport?[["dt","Date & time"],["qty","Cartons sent"]]:isOtaSimpleReturn?[["dt","Date & time"],["qty","Cartons returned"]]:kind==="shifts"&&user.role==="sorting"?[["date","Date"],["line","Line"],["sh","Shift"],["f","Factory"],["sorter","Sorter"],["good","Good"],["bad","Bad"]]:COLS[kind];
+ const isSeasoningOtaReceipts=kind==="receipts"&&user.role==="seasoning"&&selectedFactory==="OTA";
+ const otaReceiptColumns=[["acceptedAt","Accepted date"],["dt","Sorting completed"],["f","Factory"],["qty","Sent"],["acc","Accepted"],["rej","Rejected"]];
+ const c=isSeasoningMonthlyDispatch?[["dt","Month"],["f","Factory"],["qty","Cartons sent"]]:isOtaSimpleTransport?[["dt","Date & time"],["qty","Cartons sent"]]:isOtaSimpleReturn?[["dt","Date & time"],["qty","Cartons returned"]]:isSeasoningOtaReceipts?otaReceiptColumns:kind==="shifts"&&user.role==="sorting"?[["date","Date"],["line","Line"],["sh","Shift"],["f","Factory"],["sorter","Sorter"],["good","Good"],["bad","Bad"]]:COLS[kind];
  const canManage=!readOnly&&(user.role==="seasoning"||(user.role==="noodle"&&["shifts","returns"].includes(kind))||(user.role==="sorting"&&kind==="shifts"));
  const actionHeader=canManage?"<th>Actions</th>":"";
  const rowHTML=a.map(r=>{
@@ -368,14 +385,21 @@ function render(){
   h=(isSeasoning?`<section class="dashboard-tools"><label>Factory<select id="dashboardFactory">${F.map(factory=>`<option value="${factory}"${factory===selectedFactory?" selected":""}>${factory}</option>`).join("")}</select></label><label>Alert threshold (good cartons)<input id="thr" type="number" min="0" value="${thr}"></label></section>`:"")+`<div class="section-heading"><h2>${isSeasoning?"Factory overview":user.factory+" dashboard"}</h2></div><div class="grid ${isSeasoning?"factory-grid":""}">${factoryCards}</div>`+(!isSeasoning?`<h2>${user.factory==="OTA"?"Recent carton returns":"Trucks on the way back"}</h2>${rows("returns")}`:"");
  }else{
   const isSeasoningReturnTracking=user.role==="seasoning"&&tab==="Return trucks tracking";
+  const isSeasoningReceiptTracking=user.role==="seasoning"&&kind==="receipts";
   const canUpdate=!isSeasoningReturnTracking&&(user.role==="seasoning"||["shifts","returns"].includes(kind));
-  h=(canUpdate?`<form id="frm">${editing?.kind===kind?`<div style="grid-column:1/-1">Editing log <button type="button" class="edit" id="cancelEdit">Cancel</button></div>`:""}${formHTML(kind)}</form>`:"")+rows(kind,isSeasoningReturnTracking);
+  const receiptFactoryFilter=isSeasoningReceiptTracking?`<section class="dashboard-tools"><label>Factory<select id="receiptFactory"${editing?.kind==="receipts"?" disabled":""}>${F.map(factory=>`<option value="${factory}"${factory===selectedFactory?" selected":""}>${factory}</option>`).join("")}</select></label></section>`:"";
+  h=receiptFactoryFilter+(canUpdate?`<form id="frm">${editing?.kind===kind?`<div style="grid-column:1/-1">Editing log <button type="button" class="edit" id="cancelEdit">Cancel</button></div>`:""}${formHTML(kind)}</form>`:"")+rows(kind,isSeasoningReturnTracking);
  }
  $("#view").innerHTML=h;
  const factorySelect=$("#f_f");
  const dashboardFactorySelect=$("#dashboardFactory");
  if(dashboardFactorySelect)dashboardFactorySelect.onchange=()=>{
   selectedFactory=dashboardFactorySelect.value;
+  render();
+ };
+ const receiptFactorySelect=$("#receiptFactory");
+ if(receiptFactorySelect)receiptFactorySelect.onchange=()=>{
+  selectedFactory=receiptFactorySelect.value;
   render();
  };
  if(factorySelect&&factorySelect.tagName==="SELECT")factorySelect.onchange=()=>{
@@ -416,24 +440,10 @@ function render(){
  if(editing&&editing.kind===kind){
   const record=D[kind].find(item=>item.id===editing.id);
   const isOtaRecord=record?.f==="OTA";
-  const fields={dispatch:user.role==="seasoning"?{f:"f_f",dt:"f_month",qty:"f_qty"}:isOtaRecord?{dt:"f_dt",qty:"f_qty"}:{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},shifts:user.role==="sorting"?{f:"f_f",date:"f_date",line:"f_line",sh:"f_sh",good:"f_good",bad:"f_bad",sorter:"f_sorter"}:{f:"f_f",date:"f_date",line:"f_line",sh:"f_sh",used:"f_used"},returns:isOtaRecord?{f:"f_f",qty:"f_qty",dt:"f_dt"}:{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
+  const fields={dispatch:user.role==="seasoning"?{f:"f_f",dt:"f_month",qty:"f_qty"}:isOtaRecord?{dt:"f_dt",qty:"f_qty"}:{f:"f_f",truck:"f_truck",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},shifts:user.role==="sorting"?{f:"f_f",date:"f_date",line:"f_line",sh:"f_sh",good:"f_good",bad:"f_bad",sorter:"f_sorter"}:{f:"f_f",date:"f_date",line:"f_line",sh:"f_sh",used:"f_used"},returns:isOtaRecord?{f:"f_f",qty:"f_qty",dt:"f_dt"}:{f:"f_f",truck:"f_truck",driver:"f_driver",ph:"f_ph",wb:"f_wb",qty:"f_qty",dt:"f_dt",eta:"f_eta"},receipts:{rid:"f_rid",acceptedAt:"f_acceptedAt",acc:"f_acc",rej:"f_rej",dt:"f_dt"}}[kind];
   if(record)for(const [key,id] of Object.entries(fields)){const input=$("#"+id);if(input)input.value=key==="truck"?String(record[key]??"").toUpperCase().replace(/[^A-Z0-9]/g,""):key==="driver"?String(record[key]??"").replace(/[0-9]/g,""):id==="f_month"?String(record[key]??"").slice(0,7):record[key]??""}
   const submit=$("#frm .go");if(submit)submit.textContent="Save changes";
  }
- const updateCalculatedReceipt=()=>{
-  const truckInput=$("#f_rid"),rejectedInput=$("#f_rej"),acceptedOutput=$("#f_acc");
-  if(truckInput&&rejectedInput&&acceptedOutput){
-   const truck=D.returns.find(record=>record.id===truckInput.value);
-   const total=truck?Number(truck.qty):null;
-   const rejected=rejectedInput.value===""?0:Number(rejectedInput.value);
-   acceptedOutput.value=Number.isSafeInteger(total)&&Number.isSafeInteger(rejected)&&total>=0&&rejected>=0&&rejected<=total?String(total-rejected):"";
-  }
- };
- for(const id of ["#f_rid","#f_rej"]){
-  const input=$(id);if(input)input.addEventListener("input",updateCalculatedReceipt);
-  if(input&&id==="#f_rid")input.addEventListener("change",updateCalculatedReceipt);
- }
- updateCalculatedReceipt();
  document.querySelectorAll("nav button[data-t]").forEach(b=>b.onclick=()=>{editing=null;tab=b.dataset.t;render()});
  const logout=$("#logout");logout.onclick=()=>{token="";user=null;applyThemeForCurrentUser();editing=null;sessionStorage.removeItem("carton_token");$("#loginMsg").textContent="You have been logged out.";setAuthenticated(false)};
  const t=$("#thr");if(t)t.onchange=async()=>{
@@ -459,7 +469,10 @@ function render(){
   if(!record){$("#msg").textContent="Action failed: record not found. Refresh and try again.";return}
   if(action==="edit"){
    editing={kind,id};
-   if(user.role==="seasoning"&&record.f)selectedFactory=record.f;
+   if(user.role==="seasoning"){
+    const recordFactory=kind==="receipts"?D.returns.find(returnRecord=>returnRecord.id===record.rid)?.f:record.f;
+    if(recordFactory)selectedFactory=recordFactory;
+   }
    tab=({dispatch:"Seasoning dispatch",shifts:user.role==="sorting"?"Shift log":"Noodle shift log",returns:user.role==="seasoning"?"Return trucks tracking":record.f==="OTA"?"Return carton tracking":"Return truck",receipts:"Sorting at seasoning"})[kind];
    render();
    return;
@@ -492,7 +505,7 @@ $("#loginForm").onsubmit=async e=>{
  try{
   const result=await api("POST",{action:"login",plant:$("#plant").value,team:$("#team").value,password:$("#password").value},false);
   token=result.token;user=result.user;applyThemeForCurrentUser();sessionStorage.setItem("carton_token",token);
-  $("#password").value="";$("#plant").value="";$("#loginMsg").textContent="";setAuthenticated(true);$("#msg").textContent="";tab="Dashboard";await load();
+  $("#password").value="";$("#password").type="password";$("#passwordToggle").setAttribute("aria-label","Show password");$("#passwordToggle").setAttribute("aria-pressed","false");$("#passwordEyeSlash").hidden=true;$("#plant").value="";$("#loginMsg").textContent="";setAuthenticated(true);$("#msg").textContent="";tab="Dashboard";await load();
  }catch(error){$("#loginMsg").textContent=error.message}
 };
 async function load(){
