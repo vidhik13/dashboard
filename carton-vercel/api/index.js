@@ -441,10 +441,26 @@ export default async function handler(req, res) {
     const { kind, rec } = req.body || {};
     if (kind === "settings") {
       if (!isSeasoning(user)) return res.status(403).send("Only seasoning can update settings");
-      const threshold = Number(rec?.thr);
-      if (!Number.isFinite(threshold) || threshold < 0)
-        return res.status(400).send("Invalid threshold");
-      const settings = { thr: threshold };
+      const current = await readSettings() || {};
+      const settings = { ...current };
+      if (rec && Object.prototype.hasOwnProperty.call(rec, "thr")) {
+        const threshold = Number(rec.thr);
+        if (!Number.isFinite(threshold) || threshold < 0)
+          return res.status(400).send("Invalid threshold");
+        settings.thr = threshold;
+      }
+      for (const [field, label] of [
+        ["actualCartonWac", "Actual carton WAC"],
+        ["sortingCost", "Sorting cost"],
+        ["haulagePhc", "PHC haulage cost"],
+        ["haulageKaduna", "Kaduna haulage cost"],
+      ]) {
+        if (!rec || !Object.prototype.hasOwnProperty.call(rec, field)) continue;
+        const value = Number(rec[field]);
+        if (!Number.isFinite(value) || value < 0)
+          return res.status(400).send(`${label} must be a number greater than or equal to zero`);
+        settings[field] = value;
+      }
       await writeSettings(settings);
       return res.status(200).json({ ok: true });
     }

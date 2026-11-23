@@ -93,6 +93,23 @@ body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:borde
 #login .password-toggle svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8}
 #login input:focus,#login select:focus{outline:2px solid var(--ac);outline-offset:1px;border-color:var(--ac)}
 #login .go{min-height:48px;margin-top:4px;border-radius:9px;font-weight:700;letter-spacing:.01em}
+.savings-grid{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.savings-card{display:grid;gap:12px;align-content:start}
+.savings-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.savings-summary-card{margin-top:14px}
+.savings-overall{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;align-items:start}
+.savings-totals{display:grid;gap:8px}
+.savings-chart-panel{display:grid;gap:8px;justify-items:center;text-align:center}
+.savings-chart-panel h3{margin:0;font-size:14px}
+.chart-wrap{display:grid;gap:10px;justify-items:center;width:100%}
+.savings-chart{max-width:100%;height:auto}
+.chart-legend{display:grid;gap:6px;width:100%;max-width:280px;text-align:left}
+.chart-legend-item{display:grid;grid-template-columns:14px 1fr auto;gap:8px;align-items:center;font-size:13px}
+.chart-swatch{width:12px;height:12px;border-radius:3px;display:inline-block}
+.chart-empty{display:grid;place-items:center;min-height:180px;width:100%;max-width:220px;padding:16px;border:1px dashed var(--bd);border-radius:10px;color:var(--mu);font-size:13px}
+.chart-center-note{font-size:13px}
+.savings-total strong{font-size:18px;color:var(--ac)}
+.savings-inputs{align-items:end}
 @media(max-width:680px){
  body.login-mode main{padding:18px 14px}
  .login-panel{padding:24px}
@@ -124,7 +141,7 @@ body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:borde
 <script>
 const F=["OTA","PHC","KADUNA"];
 const C=["dispatch","shifts","returns","receipts"];
-let D={dispatch:[],shifts:[],returns:[],receipts:[]},tab="Dashboard",user=null,token=sessionStorage.getItem("carton_token")||"",thr=500,renderedPeriod="";
+let D={dispatch:[],shifts:[],returns:[],receipts:[]},tab="Dashboard",user=null,token=sessionStorage.getItem("carton_token")||"",thr=500,renderedPeriod="",savingsSettings={actualCartonWac:0,sortingCost:0,haulagePhc:0,haulageKaduna:0};
 let selectedFactory=F[0];
 const $=s=>document.querySelector(s);
 const normalizeFactoryName=factory=>{
@@ -379,6 +396,67 @@ function rows(kind,readOnly=false){
   return `<tr>${c.map(x=>{const value=r[x[0]]??"";const displayValue=isSeasoningMonthlyDispatch&&x[0]==="dt"?String(value).slice(0,7):x[0]==="f"?normalizeFactoryName(value):value;return `<td>${fmt(displayValue)}</td>`}).join("")}${action}</tr>`;
  }).join("");
  return `<div class="tw"><table><tr>${c.map(x=>`<th>${x[1]}</th>`).join("")}${actionHeader}</tr>${rowHTML||`<tr><td class="mu" colspan="${c.length+(canManage?1:0)}">No entries yet</td></tr>`}</table></div>`}
+function savingsAmount(value){return Number.isFinite(value)?value:0}
+function savingsInputValue(value){return Number.isFinite(value)&&value!==0?String(value):""}
+function savingsRows(){
+ const wac=savingsAmount(Number(savingsSettings.actualCartonWac));
+ const sorting=savingsAmount(Number(savingsSettings.sortingCost));
+ return F.map(factory=>{
+  const acceptedYtd=stats(factory).acceptedThisYear;
+  const haulage=factory==="PHC"?savingsAmount(Number(savingsSettings.haulagePhc)):factory==="KADUNA"?savingsAmount(Number(savingsSettings.haulageKaduna)):0;
+  const gross=acceptedYtd*wac;
+  const deductions=sorting+haulage;
+  const savings=gross-deductions;
+  return{factory,acceptedYtd,wac,sorting,haulage,gross,deductions,savings};
+ });
+}
+function savingsMoney(value){return Number(value||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+function savingsPieChart(items,size=220,innerRadius=0,title=""){
+ const total=items.reduce((sum,item)=>sum+Math.max(0,item.value),0);
+ const cx=size/2,cy=size/2,r=size/2-10;
+ const colors={OTA:"#c2410c",PHC:"#0f766e",KADUNA:"#2563eb"};
+ const polar=(angle,radius)=>({x:cx+radius*Math.cos(angle),y:cy+radius*Math.sin(angle)});
+ const slices=items.map(item=>({...item,value:Math.max(0,item.value),color:colors[item.factory]||"#6b6a65"})).filter(item=>item.value>0);
+ if(!total||!slices.length)return `<div class="chart-empty" role="img" aria-label="${escapeHTML(title||"Chart")}">No positive savings to chart</div>`;
+ let start=-Math.PI/2;
+ const paths=slices.length===1?(()=>{
+  const c=colors[slices[0].factory]||"#6b6a65";
+  if(innerRadius>0)return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${c}"></circle><circle cx="${cx}" cy="${cy}" r="${innerRadius}" fill="var(--card)"></circle>`;
+  return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${c}"></circle>`;
+ })():slices.map(item=>{
+  const angle=item.value/total*Math.PI*2;
+  const end=start+angle;
+  const large=angle>Math.PI?1:0;
+  const p1=polar(start,r),p2=polar(end,r);
+  let d="";
+  if(innerRadius>0){
+   const i1=polar(end,innerRadius),i2=polar(start,innerRadius);
+   d=`M ${p1.x} ${p1.y} A ${r} ${r} 0 ${large} 1 ${p2.x} ${p2.y} L ${i1.x} ${i1.y} A ${innerRadius} ${innerRadius} 0 ${large} 0 ${i2.x} ${i2.y} Z`;
+  }else{
+   d=`M ${cx} ${cy} L ${p1.x} ${p1.y} A ${r} ${r} 0 ${large} 1 ${p2.x} ${p2.y} Z`;
+  }
+  start=end;
+  return `<path d="${d}" fill="${item.color}"><title>${escapeHTML(item.factory)}: ${savingsMoney(item.value)}</title></path>`;
+ }).join("");
+ const legend=items.map(item=>`<div class="chart-legend-item"><span class="chart-swatch" style="background:${colors[item.factory]||"#6b6a65"}"></span><span>${escapeHTML(item.factory)}</span><strong>${savingsMoney(item.savings)}</strong></div>`).join("");
+ return `<div class="chart-wrap"><svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="savings-chart" aria-label="${escapeHTML(title||"Chart")}">${paths}</svg><div class="chart-legend">${legend}</div></div>`;
+}
+function renderSavingsYtd(){
+ const rows=savingsRows();
+ const totalAccepted=rows.reduce((sum,row)=>sum+row.acceptedYtd,0);
+ const totalGross=rows.reduce((sum,row)=>sum+row.gross,0);
+ const totalDeductions=rows.reduce((sum,row)=>sum+row.deductions,0);
+ const totalSavings=rows.reduce((sum,row)=>sum+row.savings,0);
+ const year=new Date().getFullYear();
+ const pieItems=rows.map(row=>({factory:row.factory,value:row.savings,savings:row.savings}));
+ const donut=savingsPieChart(pieItems,220,62,"Circular savings graph by location");
+ const pie=savingsPieChart(pieItems,220,0,"Location wise savings pie chart");
+ const cards=rows.map(row=>`<article class="card savings-card"><div class="factory-card-head"><strong>${row.factory}</strong><span class="badge ${row.savings>=0?"ok":""}">${row.savings>=0?"Savings":"Deficit"}</span></div><div class="savings-metrics"><div class="factory-metric"><span>Total cartons accepted YTD</span><strong>${row.acceptedYtd.toLocaleString()}</strong></div><div class="factory-metric"><span>Gross (Accepted × WAC)</span><strong>${savingsMoney(row.gross)}</strong></div><div class="factory-metric"><span>Sorting cost</span><strong>${savingsMoney(row.sorting)}</strong></div>${row.factory==="OTA"?`<div class="factory-metric"><span>Haulage cost</span><strong>—</strong><small>Not deducted for OTA</small></div>`:`<div class="factory-metric"><span>Haulage cost</span><strong>${savingsMoney(row.haulage)}</strong></div>`}<div class="factory-metric savings-total"><span>Savings YTD</span><strong>${savingsMoney(row.savings)}</strong><small>${row.factory==="OTA"?"Accepted × WAC − sorting":"Accepted × WAC − sorting − haulage"}</small></div></div></article>`).join("");
+ return `<section class="dashboard-tools savings-inputs"><label>Actual carton WAC (same for all)<input id="sav_wac" type="number" min="0" step="0.01" value="${savingsInputValue(savingsSettings.actualCartonWac)}" placeholder="0"></label><label>Sorting cost (same for all)<input id="sav_sorting" type="number" min="0" step="0.01" value="${savingsInputValue(savingsSettings.sortingCost)}" placeholder="0"></label><label>PHC haulage cost<input id="sav_haulage_phc" type="number" min="0" step="0.01" value="${savingsInputValue(savingsSettings.haulagePhc)}" placeholder="0"></label><label>Kaduna haulage cost<input id="sav_haulage_kaduna" type="number" min="0" step="0.01" value="${savingsInputValue(savingsSettings.haulageKaduna)}" placeholder="0"></label><button id="saveSavings" class="go" type="button">Save savings inputs</button></section>
+ <div class="section-heading"><h2>Savings YTD · ${year}</h2><span class="mu">Based on total cartons accepted (Jan–Dec ${year})</span></div>
+ <div class="grid savings-grid">${cards}</div>
+ <section class="card savings-summary-card"><div class="section-heading"><h2>Overall savings</h2><span class="mu">Numbers and circular graph</span></div><div class="savings-overall"><div class="savings-totals"><div class="factory-metric"><span>Total cartons accepted YTD</span><strong>${totalAccepted.toLocaleString()}</strong></div><div class="factory-metric"><span>Total gross</span><strong>${savingsMoney(totalGross)}</strong></div><div class="factory-metric"><span>Total deductions</span><strong>${savingsMoney(totalDeductions)}</strong></div><div class="factory-metric savings-total"><span>Total savings YTD</span><strong>${savingsMoney(totalSavings)}</strong></div></div><div class="savings-chart-panel"><h3>Circular graph</h3>${donut}<div class="chart-center-note mu">Total savings: <strong>${savingsMoney(totalSavings)}</strong></div></div><div class="savings-chart-panel"><h3>Location wise pie chart</h3>${pie}</div></div></section>`;
+}
 function pendingSortingTable(factory,canComplete=false){
  const pending=D.receipts.filter(receipt=>!isSortedReceipt(receipt)).map(receipt=>({...receipt,returnRecord:D.returns.find(item=>item.id===receipt.rid)})).filter(receipt=>receipt.returnRecord?.f===factory);
  const total=pending.reduce((sum,receipt)=>sum+(Number(receipt.returnRecord.qty)||0),0);
@@ -399,13 +477,15 @@ function render(){
  const tabs=user.role==="sorting"
   ?["Shift log"]
   :user.role==="seasoning"
-  ?["Dashboard","Seasoning dispatch","Return trucks tracking","Sorting at seasoning"]
+  ?["Dashboard","Seasoning dispatch","Return trucks tracking","Sorting at seasoning","Savings YTD"]
   :["Dashboard","Seasoning dispatch","Noodle shift log",user.factory==="OTA"?"Return carton tracking":"Return truck","Sorting at seasoning"];
  if(!tabs.includes(tab))tab=tabs[0];
  $("#nav").innerHTML=tabs.map(t=>`<button class="${t===tab?"on":""}" data-t="${t}">${t}</button>`).join("")+`<button id="logout">Log out</button>`;
  const kind={"Seasoning dispatch":"dispatch","Shift log":"shifts","Noodle shift log":"shifts","Return truck":"returns","Return carton tracking":"returns","Return trucks tracking":"returns","Sorting at seasoning":"receipts"}[tab];
  let h="";
- if(!kind){
+ if(tab==="Savings YTD"){
+  h=renderSavingsYtd();
+ }else if(!kind){
   const isSeasoning=user.role==="seasoning";
   const factories=isSeasoning?[selectedFactory]:[user.factory];
   const factoryCards=factories.map(f=>{const s=stats(f),al=s.pile>=thr;
@@ -479,8 +559,22 @@ function render(){
  const t=$("#thr");if(t)t.onchange=async()=>{
   thr=+t.value||0;render();
   try{
-   await api("POST",{kind:"settings",rec:{thr}});
+   await api("POST",{kind:"settings",rec:{thr,...savingsSettings}});
   }catch(error){$("#msg").textContent="Settings update failed: "+error.message}
+ };
+ const saveSavings=$("#saveSavings");if(saveSavings)saveSavings.onclick=async()=>{
+  const readNonNegative=id=>{const value=$("#"+id).value;return value===""?0:+value};
+  const actualCartonWac=readNonNegative("sav_wac");
+  const sortingCost=readNonNegative("sav_sorting");
+  const haulagePhc=readNonNegative("sav_haulage_phc");
+  const haulageKaduna=readNonNegative("sav_haulage_kaduna");
+  if([actualCartonWac,sortingCost,haulagePhc,haulageKaduna].some(value=>!Number.isFinite(value)||value<0)){ $("#msg").textContent="Savings inputs must be numbers greater than or equal to zero"; return; }
+  savingsSettings={actualCartonWac,sortingCost,haulagePhc,haulageKaduna};
+  try{
+   await api("POST",{kind:"settings",rec:{thr,...savingsSettings}});
+   await load();
+   $("#msg").textContent=storageMessage("Savings inputs saved");
+  }catch(error){$("#msg").textContent="Savings update failed: "+error.message}
  };
  const fm=$("#frm");if(fm)fm.onsubmit=async e=>{
   e.preventDefault();
@@ -543,6 +637,12 @@ async function load(){
  try{
   const d=await api("GET");C.forEach(k=>D[k]=(d[k]||[]).map(normalizeFactoryRecord));user=d.user;applyThemeForCurrentUser();
   if(d.settings&&d.settings.thr!=null)thr=d.settings.thr;
+  savingsSettings={
+   actualCartonWac:Number(d.settings?.actualCartonWac)||0,
+   sortingCost:Number(d.settings?.sortingCost)||0,
+   haulagePhc:Number(d.settings?.haulagePhc)||0,
+   haulageKaduna:Number(d.settings?.haulageKaduna)||0
+  };
   setAuthenticated(true);$("#msg").textContent="";
   const el=document.activeElement,periodChanged=now().slice(0,7)!==renderedPeriod;
   if(!el||!/INPUT|SELECT/.test(el.tagName)||(periodChanged&&tab==="Dashboard"))render();
