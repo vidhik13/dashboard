@@ -426,8 +426,10 @@ function savingsYearRows(year){
    const acc=accepted[f][month]||0;
    const haulage=f==="PHC"?haulagePhc:f==="KADUNA"?haulageKaduna:0;
    const gross=acc*wac;
-   const savings=gross-sorting-haulage;
-   return [f,{acc,wac,sorting,haulage,gross,savings}];
+   const appliedSorting=acc?sorting:0;
+   const appliedHaulage=acc?haulage:0;
+   const savings=acc?gross-appliedSorting-appliedHaulage:0;
+   return [f,{acc,wac,sorting:appliedSorting,haulage:appliedHaulage,gross,savings}];
   }));
   const totalSavings=F.reduce((s,f)=>s+factories[f].savings,0);
   return {month,wac,sorting,haulagePhc,haulageKaduna,factories,totalSavings};
