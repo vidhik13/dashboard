@@ -93,6 +93,12 @@ body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:borde
 #login .password-toggle svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8}
 #login input:focus,#login select:focus{outline:2px solid var(--ac);outline-offset:1px;border-color:var(--ac)}
 #login .go{min-height:48px;margin-top:4px;border-radius:9px;font-weight:700;letter-spacing:.01em}
+.savings-monthly-card{margin-bottom:14px}
+.savings-monthly-card .section-heading{margin-bottom:8px;align-items:center}
+.savings-monthly-card .section-heading .go{padding:8px 12px;align-self:auto}
+.savings-monthly-table th,.savings-monthly-table td{vertical-align:middle}
+.savings-monthly-table input{width:110px;min-width:96px;padding:6px;box-sizing:border-box}
+.savings-total-row th,.savings-total-row td{border-top:2px solid var(--bd);background:var(--bg)}
 .savings-grid{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
 .savings-card{display:grid;gap:12px;align-content:start}
 .savings-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
@@ -109,7 +115,6 @@ body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:borde
 .chart-empty{display:grid;place-items:center;min-height:180px;width:100%;max-width:220px;padding:16px;border:1px dashed var(--bd);border-radius:10px;color:var(--mu);font-size:13px}
 .chart-center-note{font-size:13px}
 .savings-total strong{font-size:18px;color:var(--ac)}
-.savings-inputs{align-items:end}
 @media(max-width:680px){
  body.login-mode main{padding:18px 14px}
  .login-panel{padding:24px}
@@ -141,7 +146,7 @@ body.login-mode main{width:100%;max-width:none;min-height:100vh;box-sizing:borde
 <script>
 const F=["OTA","PHC","KADUNA"];
 const C=["dispatch","shifts","returns","receipts"];
-let D={dispatch:[],shifts:[],returns:[],receipts:[]},tab="Dashboard",user=null,token=sessionStorage.getItem("carton_token")||"",thr=500,renderedPeriod="",savingsSettings={actualCartonWac:0,sortingCost:0,haulagePhc:0,haulageKaduna:0};
+let D={dispatch:[],shifts:[],returns:[],receipts:[]},tab="Dashboard",user=null,token=sessionStorage.getItem("carton_token")||"",thr=500,renderedPeriod="",savingsByMonth={};
 let selectedFactory=F[0];
 const $=s=>document.querySelector(s);
 const normalizeFactoryName=factory=>{
@@ -398,17 +403,46 @@ function rows(kind,readOnly=false){
  return `<div class="tw"><table><tr>${c.map(x=>`<th>${x[1]}</th>`).join("")}${actionHeader}</tr>${rowHTML||`<tr><td class="mu" colspan="${c.length+(canManage?1:0)}">No entries yet</td></tr>`}</table></div>`}
 function savingsAmount(value){return Number.isFinite(value)?value:0}
 function savingsInputValue(value){return Number.isFinite(value)&&value!==0?String(value):""}
-function savingsRows(){
- const wac=savingsAmount(Number(savingsSettings.actualCartonWac));
- const sorting=savingsAmount(Number(savingsSettings.sortingCost));
- return F.map(factory=>{
-  const acceptedYtd=stats(factory).acceptedThisYear;
-  const haulage=factory==="PHC"?savingsAmount(Number(savingsSettings.haulagePhc)):factory==="KADUNA"?savingsAmount(Number(savingsSettings.haulageKaduna)):0;
-  const gross=acceptedYtd*wac;
-  const deductions=sorting+haulage;
-  const savings=gross-deductions;
-  return{factory,acceptedYtd,wac,sorting,haulage,gross,deductions,savings};
+function acceptedCartonsByMonth(factory,year){
+ const returnsById=new Map(D.returns.filter(x=>x.f===factory).map(x=>[x.id,x]));
+ const byMonth={};
+ for(const receipt of D.receipts){
+  if(!isSortedReceipt(receipt)||!returnsById.has(receipt.rid))continue;
+  const period=String(receipt.acceptedAt||receipt.dt||"").slice(0,7);
+  if(period.slice(0,4)!==String(year))continue;
+  byMonth[period]=(byMonth[period]||0)+(+receipt.acc||0);
+ }
+ return byMonth;
+}
+function savingsYearRows(year){
+ const accepted={};F.forEach(f=>accepted[f]=acceptedCartonsByMonth(f,year));
+ return Array.from({length:12},(_,i)=>`${year}-${String(i+1).padStart(2,"0")}`).map(month=>{
+  const input=(savingsByMonth&&savingsByMonth[month])||{};
+  const wac=savingsAmount(Number(input.wac));
+  const sorting=savingsAmount(Number(input.sortingCost));
+  const haulagePhc=savingsAmount(Number(input.haulagePhc));
+  const haulageKaduna=savingsAmount(Number(input.haulageKaduna));
+  const factories=Object.fromEntries(F.map(f=>{
+   const acc=accepted[f][month]||0;
+   const haulage=f==="PHC"?haulagePhc:f==="KADUNA"?haulageKaduna:0;
+   const gross=acc*wac;
+   const savings=gross-sorting-haulage;
+   return [f,{acc,wac,sorting,haulage,gross,savings}];
+  }));
+  const totalSavings=F.reduce((s,f)=>s+factories[f].savings,0);
+  return {month,wac,sorting,haulagePhc,haulageKaduna,factories,totalSavings};
  });
+}
+function savingsYtdTotals(year){
+ const rows=savingsYearRows(year);
+ return F.map(factory=>({
+  factory,
+  acceptedYtd:rows.reduce((s,r)=>s+r.factories[factory].acc,0),
+  gross:rows.reduce((s,r)=>s+r.factories[factory].gross,0),
+  sorting:rows.reduce((s,r)=>s+r.factories[factory].sorting,0),
+  haulage:rows.reduce((s,r)=>s+r.factories[factory].haulage,0),
+  savings:rows.reduce((s,r)=>s+r.factories[factory].savings,0)
+ }));
 }
 function savingsMoney(value){return Number(value||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
 function savingsPieChart(items,size=220,innerRadius=0,title=""){
@@ -442,18 +476,23 @@ function savingsPieChart(items,size=220,innerRadius=0,title=""){
  return `<div class="chart-wrap"><svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="savings-chart" aria-label="${escapeHTML(title||"Chart")}">${paths}</svg><div class="chart-legend">${legend}</div></div>`;
 }
 function renderSavingsYtd(){
- const rows=savingsRows();
- const totalAccepted=rows.reduce((sum,row)=>sum+row.acceptedYtd,0);
- const totalGross=rows.reduce((sum,row)=>sum+row.gross,0);
- const totalDeductions=rows.reduce((sum,row)=>sum+row.deductions,0);
- const totalSavings=rows.reduce((sum,row)=>sum+row.savings,0);
- const year=new Date().getFullYear();
- const pieItems=rows.map(row=>({factory:row.factory,value:row.savings,savings:row.savings}));
+ const year=String(new Date().getFullYear());
+ const monthRows=savingsYearRows(year);
+ const totals=savingsYtdTotals(year);
+ const totalAccepted=totals.reduce((sum,row)=>sum+row.acceptedYtd,0);
+ const totalGross=totals.reduce((sum,row)=>sum+row.gross,0);
+ const totalDeductions=totals.reduce((sum,row)=>sum+(row.sorting+row.haulage),0);
+ const totalSavings=totals.reduce((sum,row)=>sum+row.savings,0);
+ const pieItems=totals.map(row=>({factory:row.factory,value:row.savings,savings:row.savings}));
  const donut=savingsPieChart(pieItems,220,62,"Circular savings graph by location");
  const pie=savingsPieChart(pieItems,220,0,"Location wise savings pie chart");
- const cards=rows.map(row=>`<article class="card savings-card"><div class="factory-card-head"><strong>${row.factory}</strong><span class="badge ${row.savings>=0?"ok":""}">${row.savings>=0?"Savings":"Deficit"}</span></div><div class="savings-metrics"><div class="factory-metric"><span>Total cartons accepted YTD</span><strong>${row.acceptedYtd.toLocaleString()}</strong></div><div class="factory-metric"><span>Gross (Accepted × WAC)</span><strong>${savingsMoney(row.gross)}</strong></div><div class="factory-metric"><span>Sorting cost</span><strong>${savingsMoney(row.sorting)}</strong></div>${row.factory==="OTA"?`<div class="factory-metric"><span>Haulage cost</span><strong>—</strong><small>Not deducted for OTA</small></div>`:`<div class="factory-metric"><span>Haulage cost</span><strong>${savingsMoney(row.haulage)}</strong></div>`}<div class="factory-metric savings-total"><span>Savings YTD</span><strong>${savingsMoney(row.savings)}</strong><small>${row.factory==="OTA"?"Accepted × WAC − sorting":"Accepted × WAC − sorting − haulage"}</small></div></div></article>`).join("");
- return `<section class="dashboard-tools savings-inputs"><label>Actual carton WAC (same for all)<input id="sav_wac" type="number" min="0" step="0.01" value="${savingsInputValue(savingsSettings.actualCartonWac)}" placeholder="0"></label><label>Sorting cost (same for all)<input id="sav_sorting" type="number" min="0" step="0.01" value="${savingsInputValue(savingsSettings.sortingCost)}" placeholder="0"></label><label>PHC haulage cost<input id="sav_haulage_phc" type="number" min="0" step="0.01" value="${savingsInputValue(savingsSettings.haulagePhc)}" placeholder="0"></label><label>Kaduna haulage cost<input id="sav_haulage_kaduna" type="number" min="0" step="0.01" value="${savingsInputValue(savingsSettings.haulageKaduna)}" placeholder="0"></label><button id="saveSavings" class="go" type="button">Save savings inputs</button></section>
- <div class="section-heading"><h2>Savings YTD · ${year}</h2><span class="mu">Based on total cartons accepted (Jan–Dec ${year})</span></div>
+ const monthLabel=month=>new Date(Number(year),Number(month.slice(5))-1,1).toLocaleString(undefined,{month:"short",year:"numeric"});
+ const inputCell=(month,field,value,label)=>`<td><input type="number" min="0" step="0.01" value="${savingsInputValue(value)}" placeholder="0" aria-label="${escapeHTML(label)} ${escapeHTML(monthLabel(month))}" data-sav-month="${month}" data-sav-field="${field}"></td>`;
+ const monthlyBody=monthRows.map(row=>`<tr><th scope="row">${escapeHTML(monthLabel(row.month))}</th><td>${row.factories.OTA.acc.toLocaleString()}</td><td>${row.factories.PHC.acc.toLocaleString()}</td><td>${row.factories.KADUNA.acc.toLocaleString()}</td>${inputCell(row.month,"wac",row.wac,"WAC")}${inputCell(row.month,"sortingCost",row.sorting,"Sorting cost")}${inputCell(row.month,"haulagePhc",row.haulagePhc,"PHC haulage")}${inputCell(row.month,"haulageKaduna",row.haulageKaduna,"Kaduna haulage")}<td>${savingsMoney(row.factories.OTA.savings)}</td><td>${savingsMoney(row.factories.PHC.savings)}</td><td>${savingsMoney(row.factories.KADUNA.savings)}</td><td><strong>${savingsMoney(row.totalSavings)}</strong></td></tr>`).join("");
+ const monthlyTotals=`<tr class="savings-total-row"><th scope="row">YTD total</th><td>${totals[0].acceptedYtd.toLocaleString()}</td><td>${totals[1].acceptedYtd.toLocaleString()}</td><td>${totals[2].acceptedYtd.toLocaleString()}</td><td colspan="4" class="mu">Monthly WAC, sorting, and haulage inputs</td><td><strong>${savingsMoney(totals[0].savings)}</strong></td><td><strong>${savingsMoney(totals[1].savings)}</strong></td><td><strong>${savingsMoney(totals[2].savings)}</strong></td><td><strong>${savingsMoney(totalSavings)}</strong></td></tr>`;
+ const cards=totals.map(row=>`<article class="card savings-card"><div class="factory-card-head"><strong>${row.factory}</strong><span class="badge ${row.savings>=0?"ok":""}">${row.savings>=0?"Savings":"Deficit"}</span></div><div class="savings-metrics"><div class="factory-metric"><span>Total cartons accepted YTD</span><strong>${row.acceptedYtd.toLocaleString()}</strong></div><div class="factory-metric"><span>Gross (Accepted × monthly WAC)</span><strong>${savingsMoney(row.gross)}</strong></div><div class="factory-metric"><span>Total sorting cost</span><strong>${savingsMoney(row.sorting)}</strong></div>${row.factory==="OTA"?`<div class="factory-metric"><span>Haulage cost</span><strong>—</strong><small>Not deducted for OTA</small></div>`:`<div class="factory-metric"><span>Total haulage cost</span><strong>${savingsMoney(row.haulage)}</strong></div>`}<div class="factory-metric savings-total"><span>Savings YTD</span><strong>${savingsMoney(row.savings)}</strong><small>${row.factory==="OTA"?"Σ (Accepted × WAC − sorting)":"Σ (Accepted × WAC − sorting − haulage)"}</small></div></div></article>`).join("");
+ return `<section class="card savings-monthly-card"><div class="section-heading"><h2>Monthly savings inputs · ${year}</h2><button id="saveSavings" class="go" type="button">Save monthly inputs</button></div><p class="mu">Enter WAC and sorting cost for each month (same for all locations), plus PHC and Kaduna haulage for each month. Accepted cartons are taken from sorted receipts for that month. Save to recalculate YTD totals.</p><div class="tw"><table class="savings-monthly-table"><tr><th>Month</th><th>Accepted OTA</th><th>Accepted PHC</th><th>Accepted Kaduna</th><th>WAC</th><th>Sorting cost</th><th>PHC haulage</th><th>Kaduna haulage</th><th>Savings OTA</th><th>Savings PHC</th><th>Savings Kaduna</th><th>Total</th></tr>${monthlyBody}${monthlyTotals}</table></div></section>
+ <div class="section-heading"><h2>Savings YTD · ${year}</h2><span class="mu">Sum of monthly savings (accepted cartons per month × monthly WAC − monthly costs)</span></div>
  <div class="grid savings-grid">${cards}</div>
  <section class="card savings-summary-card"><div class="section-heading"><h2>Overall savings</h2><span class="mu">Numbers and circular graph</span></div><div class="savings-overall"><div class="savings-totals"><div class="factory-metric"><span>Total cartons accepted YTD</span><strong>${totalAccepted.toLocaleString()}</strong></div><div class="factory-metric"><span>Total gross</span><strong>${savingsMoney(totalGross)}</strong></div><div class="factory-metric"><span>Total deductions</span><strong>${savingsMoney(totalDeductions)}</strong></div><div class="factory-metric savings-total"><span>Total savings YTD</span><strong>${savingsMoney(totalSavings)}</strong></div></div><div class="savings-chart-panel"><h3>Circular graph</h3>${donut}<div class="chart-center-note mu">Total savings: <strong>${savingsMoney(totalSavings)}</strong></div></div><div class="savings-chart-panel"><h3>Location wise pie chart</h3>${pie}</div></div></section>`;
 }
@@ -559,21 +598,22 @@ function render(){
  const t=$("#thr");if(t)t.onchange=async()=>{
   thr=+t.value||0;render();
   try{
-   await api("POST",{kind:"settings",rec:{thr,...savingsSettings}});
+   await api("POST",{kind:"settings",rec:{thr,savingsByMonth}});
   }catch(error){$("#msg").textContent="Settings update failed: "+error.message}
  };
  const saveSavings=$("#saveSavings");if(saveSavings)saveSavings.onclick=async()=>{
-  const readNonNegative=id=>{const value=$("#"+id).value;return value===""?0:+value};
-  const actualCartonWac=readNonNegative("sav_wac");
-  const sortingCost=readNonNegative("sav_sorting");
-  const haulagePhc=readNonNegative("sav_haulage_phc");
-  const haulageKaduna=readNonNegative("sav_haulage_kaduna");
-  if([actualCartonWac,sortingCost,haulagePhc,haulageKaduna].some(value=>!Number.isFinite(value)||value<0)){ $("#msg").textContent="Savings inputs must be numbers greater than or equal to zero"; return; }
-  savingsSettings={actualCartonWac,sortingCost,haulagePhc,haulageKaduna};
+  const next={};
+  for(const input of $("#view").querySelectorAll("input[data-sav-month][data-sav-field]")){
+   const month=input.dataset.savMonth,field=input.dataset.savField,value=input.value===""?0:+input.value;
+   if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)||!["wac","sortingCost","haulagePhc","haulageKaduna"].includes(field)){ $("#msg").textContent="Savings inputs could not be read. Refresh and try again."; return; }
+   if(!Number.isFinite(value)||value<0){ $("#msg").textContent="Monthly savings inputs must be numbers greater than or equal to zero"; return; }
+   if(value===0)continue;
+   next[month]={...(next[month]||{}),[field]:value};
+  }
   try{
-   await api("POST",{kind:"settings",rec:{thr,...savingsSettings}});
+   await api("POST",{kind:"settings",rec:{thr,savingsByMonth:next}});
    await load();
-   $("#msg").textContent=storageMessage("Savings inputs saved");
+   $("#msg").textContent=storageMessage("Monthly savings inputs saved");
   }catch(error){$("#msg").textContent="Savings update failed: "+error.message}
  };
  const fm=$("#frm");if(fm)fm.onsubmit=async e=>{
@@ -637,12 +677,7 @@ async function load(){
  try{
   const d=await api("GET");C.forEach(k=>D[k]=(d[k]||[]).map(normalizeFactoryRecord));user=d.user;applyThemeForCurrentUser();
   if(d.settings&&d.settings.thr!=null)thr=d.settings.thr;
-  savingsSettings={
-   actualCartonWac:Number(d.settings?.actualCartonWac)||0,
-   sortingCost:Number(d.settings?.sortingCost)||0,
-   haulagePhc:Number(d.settings?.haulagePhc)||0,
-   haulageKaduna:Number(d.settings?.haulageKaduna)||0
-  };
+  savingsByMonth=(d.settings&&typeof d.settings.savingsByMonth==="object"&&!Array.isArray(d.settings.savingsByMonth))?d.settings.savingsByMonth:{};
   setAuthenticated(true);$("#msg").textContent="";
   const el=document.activeElement,periodChanged=now().slice(0,7)!==renderedPeriod;
   if(!el||!/INPUT|SELECT/.test(el.tagName)||(periodChanged&&tab==="Dashboard"))render();

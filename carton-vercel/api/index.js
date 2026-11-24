@@ -449,17 +449,32 @@ export default async function handler(req, res) {
           return res.status(400).send("Invalid threshold");
         settings.thr = threshold;
       }
-      for (const [field, label] of [
-        ["actualCartonWac", "Actual carton WAC"],
-        ["sortingCost", "Sorting cost"],
-        ["haulagePhc", "PHC haulage cost"],
-        ["haulageKaduna", "Kaduna haulage cost"],
-      ]) {
-        if (!rec || !Object.prototype.hasOwnProperty.call(rec, field)) continue;
-        const value = Number(rec[field]);
-        if (!Number.isFinite(value) || value < 0)
-          return res.status(400).send(`${label} must be a number greater than or equal to zero`);
-        settings[field] = value;
+      if (rec && Object.prototype.hasOwnProperty.call(rec, "savingsByMonth")) {
+        const raw = rec.savingsByMonth;
+        if (!raw || typeof raw !== "object" || Array.isArray(raw))
+          return res.status(400).send("Savings monthly data must be an object");
+        const months = {};
+        for (const [month, values] of Object.entries(raw)) {
+          if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+            return res.status(400).send("Savings month must use YYYY-MM format");
+          if (!values || typeof values !== "object" || Array.isArray(values))
+            return res.status(400).send("Savings month values must be an object");
+          const entry = {};
+          for (const [field, label] of [
+            ["wac", "Monthly WAC"],
+            ["sortingCost", "Monthly sorting cost"],
+            ["haulagePhc", "Monthly PHC haulage"],
+            ["haulageKaduna", "Monthly Kaduna haulage"],
+          ]) {
+            if (!Object.prototype.hasOwnProperty.call(values, field)) continue;
+            const value = Number(values[field]);
+            if (!Number.isFinite(value) || value < 0)
+              return res.status(400).send(`${label} must be a number greater than or equal to zero`);
+            entry[field] = value;
+          }
+          if (Object.keys(entry).length) months[month] = entry;
+        }
+        settings.savingsByMonth = months;
       }
       await writeSettings(settings);
       return res.status(200).json({ ok: true });
